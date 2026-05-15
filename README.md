@@ -169,6 +169,27 @@ from the **Exports** page.
 - Design tokens: [`shadcn/ui`](https://ui.shadcn.com) HSL palette,
   reinterpreted in QSS
 
+## Changelog
+
+A version-by-version history (English + 中文) lives in
+[`CHANGELOG.md`](./CHANGELOG.md). The format follows
+[Keep a Changelog](https://keepachangelog.com/) and the version
+numbers follow [Semantic Versioning](https://semver.org/).
+
+When you add a feature or fix a bug, write a one-line entry under the
+**[Unreleased]** section of the changelog in the same commit. When
+cutting a release, move those entries into a new
+`## [x.y.z] – YYYY-MM-DD` block, bump `version` in
+`pyproject.toml` and `src/parrotsub/__init__.py`, then tag the commit:
+
+```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin main --tags
+```
+
+GitHub auto-creates a release page from the tag; you can paste the
+matching changelog block as the release notes.
+
 ## License
 
 ParrotSub is released under the **Apache License 2.0** —

@@ -139,6 +139,25 @@ ParrotSub/
 - 设计 token：[`shadcn/ui`](https://ui.shadcn.com) 的 HSL 色板，
   在 QSS 中以等价的 hex 表达
 
+## 更新日志
+
+按版本汇总的中英双语变更记录见 [`CHANGELOG.md`](./CHANGELOG.md)。
+该文件遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 格式，
+版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范。
+
+新增功能或修复 bug 时，请在同一次提交里把一行条目写到
+CHANGELOG 顶部的 **[Unreleased]** 段落。准备发布时，把这些条目挪到
+新的 `## [x.y.z] – YYYY-MM-DD` 段落里，同步更新 `pyproject.toml` 与
+`src/parrotsub/__init__.py` 的版本号，然后打 tag：
+
+```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin main --tags
+```
+
+GitHub 会从 tag 自动生成一个 Release 页面，把 CHANGELOG 里对应的
+段落贴进去当作 Release Notes 即可。
+
 ## 许可证
 
 ParrotSub 采用 **Apache License 2.0**，详见 [`LICENSE`](./LICENSE) 与
