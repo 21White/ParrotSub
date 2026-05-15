@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from realtime_subtitle import app_config
 from realtime_subtitle.subtitle import RealtimeSubtitle
 
+from parrotsub.i18n import t, translator
 from parrotsub.icons import make_icon
 from parrotsub.theme import Palette
 from parrotsub.widgets.card import Card
@@ -34,7 +35,9 @@ _MODEL_SUB_THRESHOLD = 3
 class HomePage(QWidget):
     """The main, "Tasks" style page."""
 
-    status_changed = pyqtSignal(str, str)  # state, text
+    # Emits ``(state, key, kwargs_json_or_text)``.  Pages translate the
+    # status text themselves so MainWindow can connect a generic slot.
+    status_changed = pyqtSignal(str, str)
 
     def __init__(
         self,
@@ -55,66 +58,66 @@ class HomePage(QWidget):
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(16)
 
-        outer.addWidget(self._build_actions_card())
+        self._actions_card = self._build_actions_card()
+        outer.addWidget(self._actions_card)
 
         grid_host = QWidget(self)
         grid = QGridLayout(grid_host)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(16)
 
-        self._original_view = SubtitleView(
-            placeholder="Speak into your microphone, recognised text will appear here."
+        self._original_view = SubtitleView(placeholder=t("home.original.placeholder"))
+        self._original_card = Card(
+            title=t("home.original.title"),
+            description=t("home.original.desc"),
         )
-        original_card = Card(
-            title="Original",
-            description="Live whisper transcription from your selected input device.",
-        )
-        original_card.body_layout.addWidget(self._original_view)
+        self._original_card.body_layout.addWidget(self._original_view)
 
         self._translation_view = SubtitleView(
-            placeholder="Translated text will stream here when translation is enabled."
+            placeholder=t("home.translation.placeholder")
         )
-        translation_card = Card(
-            title="Translation",
-            description=f"{cfg.TranslateFrom} → {cfg.TranslateTo} (offline argos / online).",
+        self._translation_card = Card(
+            title=t("home.translation.title"),
+            description=self._translation_desc_text(),
         )
-        translation_card.body_layout.addWidget(self._translation_view)
+        self._translation_card.body_layout.addWidget(self._translation_view)
 
-        grid.addWidget(original_card, 0, 0)
-        grid.addWidget(translation_card, 0, 1)
+        grid.addWidget(self._original_card, 0, 0)
+        grid.addWidget(self._translation_card, 0, 1)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         grid.setRowStretch(0, 1)
         outer.addWidget(grid_host, stretch=1)
 
-        outer.addWidget(self._build_floating_card())
+        self._floating_card = self._build_floating_card()
+        outer.addWidget(self._floating_card)
 
-        # Hook the backend update callback into the Qt event loop via a signal.
         self.status_changed.connect(lambda *_: None)
         self._rs.set_update_hook(self._on_backend_update)
+
+        translator().locale_changed.connect(self._retranslate)
 
     # ------------------------------------------------------------------
     # UI assembly
     # ------------------------------------------------------------------
     def _build_actions_card(self) -> Card:
         card = Card(
-            title="Tasks",
-            description="Start the realtime pipeline, or export the current session.",
+            title=t("home.tasks.title"),
+            description=t("home.tasks.desc"),
         )
 
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(10)
 
-        self._start_btn = QPushButton(" Start recording")
+        self._start_btn = QPushButton(t("home.action.start"))
         self._start_btn.setProperty("variant", "")  # primary
         self._start_btn.setMinimumHeight(36)
-        # Initial icon — re-coloured by ``apply_palette``.
         self._start_btn.setIcon(make_icon("play", color="#ffffff", size=18))
         self._start_btn.clicked.connect(self._on_start_stop_clicked)
         row.addWidget(self._start_btn)
 
-        self._export_btn = QPushButton(" Export session")
+        self._export_btn = QPushButton(t("home.action.export"))
         self._export_btn.setProperty("variant", "secondary")
         self._export_btn.setMinimumHeight(36)
         self._export_btn.clicked.connect(self._on_export_clicked)
@@ -131,45 +134,80 @@ class HomePage(QWidget):
 
     def _build_floating_card(self) -> Card:
         card = Card(
-            title="Floating windows",
-            description="Project the live subtitles on top of every other app.",
+            title=t("home.floating.title"),
+            description=t("home.floating.desc"),
         )
 
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(20)
 
-        self._float_original_switch = Switch("Original subtitles overlay")
+        self._float_original_switch = Switch(t("home.floating.original"))
         self._float_original_switch.toggled.connect(self._toggle_original_floating)
         row.addWidget(self._float_original_switch)
 
-        self._float_translation_switch = Switch("Translation overlay")
+        self._float_translation_switch = Switch(t("home.floating.translation"))
         self._float_translation_switch.toggled.connect(self._toggle_translation_floating)
         row.addWidget(self._float_translation_switch)
 
         row.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
-        hint = QLabel("Tip: drag the overlay window with your mouse to reposition.")
-        hint.setObjectName("FieldHint")
-        row.addWidget(hint)
+        self._floating_hint = QLabel(t("home.floating.tip"))
+        self._floating_hint.setObjectName("FieldHint")
+        row.addWidget(self._floating_hint)
 
         card.body_layout.addLayout(row)
         return card
 
     # ------------------------------------------------------------------
-    # Behaviour
+    # i18n
     # ------------------------------------------------------------------
+    def _translation_desc_text(self) -> str:
+        return t(
+            "home.translation.desc",
+            src=self._cfg.TranslateFrom,
+            tgt=self._cfg.TranslateTo,
+        )
+
     def _device_label_text(self) -> str:
         device = self._cfg.InputDevice or "default"
         model = self._cfg.ModelName.split("/")[-1]
-        return f"Input: {device}    ·    Model: {model}"
+        return t("home.device_label", device=device, model=model)
 
+    def _retranslate(self, _locale: str) -> None:
+        # Action card
+        self._actions_card.title_label.setText(t("home.tasks.title"))
+        self._actions_card.description_label.setText(t("home.tasks.desc"))
+        self._device_label.setText(self._device_label_text())
+        self._start_btn.setText(
+            t("home.action.stop") if self._rs.running else t("home.action.start")
+        )
+        self._export_btn.setText(t("home.action.export"))
+
+        # Subtitle cards
+        self._original_card.title_label.setText(t("home.original.title"))
+        self._original_card.description_label.setText(t("home.original.desc"))
+        self._original_view.setPlaceholderText(t("home.original.placeholder"))
+
+        self._translation_card.title_label.setText(t("home.translation.title"))
+        self._translation_card.description_label.setText(self._translation_desc_text())
+        self._translation_view.setPlaceholderText(t("home.translation.placeholder"))
+
+        # Floating card
+        self._floating_card.title_label.setText(t("home.floating.title"))
+        self._floating_card.description_label.setText(t("home.floating.desc"))
+        self._float_original_switch.setText(t("home.floating.original"))
+        self._float_translation_switch.setText(t("home.floating.translation"))
+        self._floating_hint.setText(t("home.floating.tip"))
+
+    # ------------------------------------------------------------------
     def refresh_from_config(self) -> None:
         """Re-read the cached config (call after Settings page saves)."""
         from realtime_subtitle import app_config as _ac
 
         self._cfg = _ac.get()
         self._device_label.setText(self._device_label_text())
+        self._translation_card.description_label.setText(self._translation_desc_text())
 
     def apply_palette(self, p: Palette) -> None:
         self._palette = p
@@ -189,25 +227,25 @@ class HomePage(QWidget):
     def _on_start_stop_clicked(self) -> None:
         if self._rs.running:
             self._rs.stop()
-            self._start_btn.setText(" Start recording")
-            self.status_changed.emit("idle", "Idle")
+            self._start_btn.setText(t("home.action.start"))
+            self.status_changed.emit("idle", t("status.idle"))
         else:
             self._rs.start()
-            self._start_btn.setText(" Stop recording")
-            self.status_changed.emit("active", "Recording")
+            self._start_btn.setText(t("home.action.stop"))
+            self.status_changed.emit("active", t("status.recording"))
         self._refresh_action_icons()
 
     def _on_export_clicked(self) -> None:
         if self._rs.running:
             self._rs.stop()
-            self._start_btn.setText(" Start recording")
+            self._start_btn.setText(t("home.action.start"))
             self._refresh_action_icons()
-        self.status_changed.emit("warn", "Exporting…")
+        self.status_changed.emit("warn", t("status.exporting"))
         try:
             self._rs.export()
-            self.status_changed.emit("active", "Exported")
+            self.status_changed.emit("active", t("status.exported"))
         except Exception as exc:  # surfaced in the status pill
-            self.status_changed.emit("warn", f"Export failed: {exc}")
+            self.status_changed.emit("warn", t("status.export_failed", error=str(exc)))
 
     # ------------------------------------------------------------------
     def _toggle_original_floating(self, checked: bool) -> None:
@@ -261,11 +299,9 @@ class HomePage(QWidget):
             print(f"[home] update hook error: {exc}")
             return
 
-        # Hop to the GUI thread by way of a Qt-safe signal.
         self._dispatch_update(all_text, all_translation)
 
     def _dispatch_update(self, original: str, translation: str) -> None:
-        # The hook may be called from a backend worker thread; defer to the GUI thread.
         self._pending_original = original
         self._pending_translation = translation
         QMetaObject.invokeMethod(

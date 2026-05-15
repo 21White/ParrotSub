@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 from realtime_subtitle import app_config
 
+from parrotsub.i18n import t, translator
 from parrotsub.icons import make_icon
 from parrotsub.theme import Palette
 from parrotsub.widgets.card import Card
@@ -42,24 +43,22 @@ class ExportsPage(QWidget):
         title_row = QHBoxLayout()
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
-        title = QLabel("Exports")
-        title.setObjectName("CardTitle")
-        title.setStyleSheet("font-size: 18px;")
-        subtitle = QLabel(
-            f"Sessions saved by Export are listed below. Storage root: {cfg.SavePath}"
-        )
-        subtitle.setObjectName("CardDescription")
-        subtitle.setWordWrap(True)
-        title_col.addWidget(title)
-        title_col.addWidget(subtitle)
+        self._title_label = QLabel(t("exports.title"))
+        self._title_label.setObjectName("CardTitle")
+        self._title_label.setStyleSheet("font-size: 18px;")
+        self._subtitle_label = QLabel(self._subtitle_text())
+        self._subtitle_label.setObjectName("CardDescription")
+        self._subtitle_label.setWordWrap(True)
+        title_col.addWidget(self._title_label)
+        title_col.addWidget(self._subtitle_label)
         title_row.addLayout(title_col, stretch=1)
 
-        self._open_root_btn = QPushButton(" Open folder")
+        self._open_root_btn = QPushButton(t("exports.action.open_folder"))
         self._open_root_btn.setProperty("variant", "outline")
         self._open_root_btn.clicked.connect(self._open_root)
         title_row.addWidget(self._open_root_btn)
 
-        self._refresh_btn = QPushButton(" Refresh")
+        self._refresh_btn = QPushButton(t("exports.action.refresh"))
         self._refresh_btn.setProperty("variant", "secondary")
         self._refresh_btn.clicked.connect(self.refresh)
         title_row.addWidget(self._refresh_btn)
@@ -67,29 +66,33 @@ class ExportsPage(QWidget):
         outer.addLayout(title_row)
 
         # List card
-        list_card = Card(
-            title="Sessions",
-            description="Double-click a session to open its folder in Finder.",
+        self._sessions_card = Card(
+            title=t("exports.sessions.title"),
+            description=t("exports.sessions.desc"),
         )
         self._list = QListWidget()
         self._list.itemDoubleClicked.connect(self._open_selected)
-        list_card.body_layout.addWidget(self._list)
+        self._sessions_card.body_layout.addWidget(self._list)
 
         actions_row = QHBoxLayout()
-        self._open_btn = QPushButton(" Open in Finder")
+        self._open_btn = QPushButton(t("exports.action.open_finder"))
         self._open_btn.setProperty("variant", "outline")
         self._open_btn.clicked.connect(self._open_selected)
         actions_row.addWidget(self._open_btn)
 
-        self._open_html_btn = QPushButton(" Open transcription.html")
+        self._open_html_btn = QPushButton(t("exports.action.open_html"))
         self._open_html_btn.setProperty("variant", "outline")
         self._open_html_btn.clicked.connect(self._open_html)
         actions_row.addWidget(self._open_html_btn)
 
-        actions_row.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
-        list_card.body_layout.addLayout(actions_row)
+        actions_row.addItem(
+            QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        )
+        self._sessions_card.body_layout.addLayout(actions_row)
 
-        outer.addWidget(list_card, stretch=1)
+        outer.addWidget(self._sessions_card, stretch=1)
+
+        translator().locale_changed.connect(self._retranslate)
 
         self.refresh()
 
@@ -104,13 +107,27 @@ class ExportsPage(QWidget):
             btn.setIcon(make_icon(name, color=p.foreground, size=16))
 
     # ------------------------------------------------------------------
+    def _subtitle_text(self) -> str:
+        return t("exports.subtitle", root=self._cfg.SavePath)
+
+    def _retranslate(self, _locale: str) -> None:
+        self._title_label.setText(t("exports.title"))
+        self._subtitle_label.setText(self._subtitle_text())
+        self._open_root_btn.setText(t("exports.action.open_folder"))
+        self._refresh_btn.setText(t("exports.action.refresh"))
+        self._open_btn.setText(t("exports.action.open_finder"))
+        self._open_html_btn.setText(t("exports.action.open_html"))
+        self._sessions_card.title_label.setText(t("exports.sessions.title"))
+        self._sessions_card.description_label.setText(t("exports.sessions.desc"))
+        # Rebuild the list so any "empty" placeholder text picks up the new locale.
+        self.refresh()
+
+    # ------------------------------------------------------------------
     def refresh(self) -> None:
         self._list.clear()
         root = os.path.expanduser(self._cfg.SavePath)
         if not os.path.isdir(root):
-            placeholder = QListWidgetItem(
-                "No exports yet — your first 'Export session' will appear here."
-            )
+            placeholder = QListWidgetItem(t("exports.empty.no_dir"))
             placeholder.setFlags(placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             self._list.addItem(placeholder)
             return
@@ -123,9 +140,7 @@ class ExportsPage(QWidget):
         entries.sort(key=lambda x: x[2], reverse=True)
 
         if not entries:
-            placeholder = QListWidgetItem(
-                "Storage folder exists but is empty."
-            )
+            placeholder = QListWidgetItem(t("exports.empty.empty_dir"))
             placeholder.setFlags(placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable)
             self._list.addItem(placeholder)
             return

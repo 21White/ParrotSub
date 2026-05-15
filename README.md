@@ -25,9 +25,13 @@ GitHub: <https://github.com/21White/ParrotSub>
 
 - **Sidebar + header app shell** – 56 px icon rail (Tasks / Settings /
   Exports), 57 px header with title, version and a live status pill.
+- **English / Chinese UI** – auto-detects the OS language on first
+  launch; toggle anytime with the *languages* button in the sidebar.
+  Choice persists across runs in
+  `~/.config/parrotsub/parrotsub.config`.
 - **shadcn-style theming** – design tokens, light & dark palettes, a
   teal brand accent (`#0d9488` light / `#14b8a6` dark) leading every
-  primary action and active state.
+  primary action and active state. Light/dark choice also persisted.
 - **Tasks page** – Start / Stop recording, dual *Original* and
   *Translation* cards that update live, on/off switches for two
   always-on-top floating overlays, one-click export.

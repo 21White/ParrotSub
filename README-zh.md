@@ -22,6 +22,9 @@ GitHub：<https://github.com/21White/ParrotSub>
 
 - **侧边栏 + Header 应用框架**：56px 图标导航条（Tasks / Settings /
   Exports）、57px 顶部栏（标题 / 版本号 / 实时状态胶囊）。
+- **中英双语 UI**：首次启动自动跟随系统语言；侧边栏里那个
+  *languages* 图标按钮可随时切换中文 / English。语言与主题选择会
+  保存在 `~/.config/parrotsub/parrotsub.config`。
 - **shadcn 风格主题**：统一设计 token、明暗双套调色板、属于鹦鹉品牌的
   teal 主色（亮 `#0d9488` / 暗 `#14b8a6`），所有主操作和激活态都用它。
 - **Tasks 页**：开始 / 停止录音、原文与译文双卡片实时刷新、两个置顶

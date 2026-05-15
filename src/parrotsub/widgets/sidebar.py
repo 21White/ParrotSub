@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QSpacerItem, QSizePolicy, QVBoxLayout, QWidget
 
+from parrotsub.i18n import t, translator
 from parrotsub.theme import Palette
 from parrotsub.widgets.icon_button import IconButton
 
@@ -14,12 +15,14 @@ from parrotsub.widgets.icon_button import IconButton
 class Sidebar(QFrame):
     """Vertical icon nav rail (56px wide).
 
-    Emits ``page_requested(int)`` with the index of the page button that was
-    clicked, and ``theme_toggled()`` when the sun/moon button is clicked.
+    ``nav_items`` is a list of ``(icon_name, i18n_key)`` tuples where
+    ``i18n_key`` is looked up in :mod:`parrotsub.i18n` so the tooltip
+    follows the active locale.
     """
 
     page_requested = pyqtSignal(int)
     theme_toggled = pyqtSignal()
+    language_toggled = pyqtSignal()
     github_requested = pyqtSignal()
 
     def __init__(
@@ -30,6 +33,7 @@ class Sidebar(QFrame):
         super().__init__(parent)
         self.setObjectName("Sidebar")
         self.setFixedWidth(56)
+        self._nav_keys: List[str] = [key for _, key in nav_items]
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -38,19 +42,18 @@ class Sidebar(QFrame):
         # Brand cell (top, with bottom border via the Sidebar QSS).
         brand_box = QHBoxLayout()
         brand_box.setContentsMargins(8, 8, 8, 8)
-        self.brand = IconButton("captions", "ParrotSub", variant="brand")
+        self.brand = IconButton("captions", t("brand.tooltip"), variant="brand")
         brand_box.addWidget(self.brand)
         outer.addLayout(brand_box)
 
-        # Top separator (1px line) is drawn by the QSS border.
         # Nav buttons.
         nav_box = QVBoxLayout()
         nav_box.setContentsMargins(8, 8, 8, 8)
         nav_box.setSpacing(4)
 
         self._nav_buttons: List[IconButton] = []
-        for index, (icon_name, tooltip) in enumerate(nav_items):
-            btn = IconButton(icon_name, tooltip, variant="nav")
+        for index, (icon_name, key) in enumerate(nav_items):
+            btn = IconButton(icon_name, t(key), variant="nav")
             btn.clicked.connect(lambda _checked=False, i=index: self._on_nav_clicked(i))
             self._nav_buttons.append(btn)
             nav_box.addWidget(btn)
@@ -58,20 +61,27 @@ class Sidebar(QFrame):
         outer.addLayout(nav_box)
         outer.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
-        # Bottom: theme toggle + GitHub
+        # Bottom: language toggle + theme toggle + GitHub
         bottom_box = QVBoxLayout()
         bottom_box.setContentsMargins(8, 8, 8, 8)
         bottom_box.setSpacing(4)
 
-        self.theme_button = IconButton("moon", "Toggle theme", variant="nav")
+        self.language_button = IconButton("languages", t("nav.language.toggle"), variant="nav")
+        self.language_button.clicked.connect(self.language_toggled.emit)
+        bottom_box.addWidget(self.language_button)
+
+        self.theme_button = IconButton("moon", t("nav.theme.toggle"), variant="nav")
         self.theme_button.clicked.connect(self.theme_toggled.emit)
         bottom_box.addWidget(self.theme_button)
 
-        self.github_button = IconButton("github", "GitHub", variant="nav")
+        self.github_button = IconButton("github", t("nav.github"), variant="nav")
         self.github_button.clicked.connect(self.github_requested.emit)
         bottom_box.addWidget(self.github_button)
 
         outer.addLayout(bottom_box)
+
+        # React to locale changes: refresh all tooltips.
+        translator().locale_changed.connect(self._retranslate)
 
     # ------------------------------------------------------------------
     # public API
@@ -83,10 +93,23 @@ class Sidebar(QFrame):
     def apply_palette(self, p: Palette, current_theme: str) -> None:
         # Switch the toggle icon depending on the current theme.
         self.theme_button._icon_name = "sun" if current_theme == "dark" else "moon"
-        # Re-render every icon so the color follows the theme.
-        for btn in [self.brand, self.theme_button, self.github_button, *self._nav_buttons]:
+        for btn in [
+            self.brand,
+            self.language_button,
+            self.theme_button,
+            self.github_button,
+            *self._nav_buttons,
+        ]:
             btn.apply_palette(p)
 
     # ------------------------------------------------------------------
+    def _retranslate(self, _locale: str) -> None:
+        self.brand.setToolTip(t("brand.tooltip"))
+        self.language_button.setToolTip(t("nav.language.toggle"))
+        self.theme_button.setToolTip(t("nav.theme.toggle"))
+        self.github_button.setToolTip(t("nav.github"))
+        for key, btn in zip(self._nav_keys, self._nav_buttons):
+            btn.setToolTip(t(key))
+
     def _on_nav_clicked(self, index: int) -> None:
         self.page_requested.emit(index)

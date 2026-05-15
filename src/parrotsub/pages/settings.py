@@ -1,4 +1,4 @@
-"""Settings page – AppConfig surfaced as grouped cards."""
+"""Settings page – AppConfig surfaced as grouped, translatable cards."""
 
 from __future__ import annotations
 
@@ -22,22 +22,23 @@ from PyQt6.QtWidgets import (
 from realtime_subtitle import app_config
 from realtime_subtitle.subtitle import RealtimeSubtitle
 
+from parrotsub.i18n import t, translator
 from parrotsub.icons import make_icon
 from parrotsub.theme import Palette
 from parrotsub.widgets.card import Card
 from parrotsub.widgets.switch import Switch
 
 
-# Grouping of AppConfig fields into shadcn-style cards.
+# (title_key, desc_key, [field_names])
 _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
     (
-        "Audio input",
-        "Choose the microphone realtime-subtitle will sample.",
+        "settings.group.audio.title",
+        "settings.group.audio.desc",
         ["InputDevice"],
     ),
     (
-        "Whisper model",
-        "Pick the speech-recognition model and tuning thresholds.",
+        "settings.group.model.title",
+        "settings.group.model.desc",
         [
             "ModelName",
             "Latency",
@@ -48,8 +49,8 @@ _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
         ],
     ),
     (
-        "Translation",
-        "Translate the live transcript online or fully offline (argos).",
+        "settings.group.translation.title",
+        "settings.group.translation.desc",
         [
             "EnableTranslation",
             "OnlineTranslation",
@@ -59,8 +60,8 @@ _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
         ],
     ),
     (
-        "Subtitle layout",
-        "Wrap & line-count for both transcript and translation panes.",
+        "settings.group.subtitle.title",
+        "settings.group.subtitle.desc",
         [
             "SubtitleLength",
             "SubtitleHight",
@@ -69,8 +70,8 @@ _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
         ],
     ),
     (
-        "Floating window",
-        "On-top, frameless overlay that mirrors the live subtitle stream.",
+        "settings.group.floating.title",
+        "settings.group.floating.desc",
         [
             "FloatingWindowFontSize",
             "FloatingWindowTextColor",
@@ -85,8 +86,8 @@ _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
         ],
     ),
     (
-        "Speaker recognition & storage",
-        "Optional speaker clustering plus where exports are written.",
+        "settings.group.speaker.title",
+        "settings.group.speaker.desc",
         ["EnableSpeakerRecognition", "DbscanEps", "SavePath"],
     ),
 ]
@@ -113,6 +114,8 @@ class SettingsPage(QWidget):
             self.saved.connect(on_saved)
 
         self._field_widgets: Dict[str, QWidget] = {}
+        self._field_labels: Dict[str, QLabel] = {}
+        self._group_cards: List[Tuple[Card, str, str]] = []  # (card, title_key, desc_key)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 20, 20, 20)
@@ -122,25 +125,22 @@ class SettingsPage(QWidget):
         action_row = QHBoxLayout()
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
-        title_label = QLabel("Settings")
-        title_label.setObjectName("CardTitle")
-        title_label.setStyleSheet("font-size: 18px;")
-        subtitle_label = QLabel(
-            "Tweak the realtime pipeline. Changes are persisted to "
-            "~/.config/glimmer/realtime-subtitle.config."
-        )
-        subtitle_label.setObjectName("CardDescription")
-        subtitle_label.setWordWrap(True)
-        title_col.addWidget(title_label)
-        title_col.addWidget(subtitle_label)
+        self._title_label = QLabel(t("settings.title"))
+        self._title_label.setObjectName("CardTitle")
+        self._title_label.setStyleSheet("font-size: 18px;")
+        self._subtitle_label = QLabel(t("settings.subtitle"))
+        self._subtitle_label.setObjectName("CardDescription")
+        self._subtitle_label.setWordWrap(True)
+        title_col.addWidget(self._title_label)
+        title_col.addWidget(self._subtitle_label)
         action_row.addLayout(title_col, stretch=1)
 
-        self._reset_btn = QPushButton(" Reset to defaults")
+        self._reset_btn = QPushButton(t("settings.action.reset"))
         self._reset_btn.setProperty("variant", "outline")
         self._reset_btn.clicked.connect(self._reset_to_defaults)
         action_row.addWidget(self._reset_btn)
 
-        self._save_btn = QPushButton(" Save changes")
+        self._save_btn = QPushButton(t("settings.action.save"))
         self._save_btn.clicked.connect(self._save)
         action_row.addWidget(self._save_btn)
         outer.addLayout(action_row)
@@ -155,10 +155,9 @@ class SettingsPage(QWidget):
         host_layout.setContentsMargins(0, 0, 4, 0)
         host_layout.setSpacing(16)
 
-        for group_title, group_desc, field_names in _FIELD_GROUPS:
-            host_layout.addWidget(
-                self._build_group_card(group_title, group_desc, field_names)
-            )
+        for title_key, desc_key, field_names in _FIELD_GROUPS:
+            card = self._build_group_card(title_key, desc_key, field_names)
+            host_layout.addWidget(card)
 
         host_layout.addItem(
             QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
@@ -167,14 +166,17 @@ class SettingsPage(QWidget):
         scroll.setWidget(host)
         outer.addWidget(scroll, stretch=1)
 
+        translator().locale_changed.connect(self._retranslate)
+
     # ------------------------------------------------------------------
     def apply_palette(self, p: Palette) -> None:
         self._save_btn.setIcon(make_icon("save", color=p.primary_foreground, size=16))
         self._reset_btn.setIcon(make_icon("refresh-cw", color=p.foreground, size=16))
 
     # ------------------------------------------------------------------
-    def _build_group_card(self, title: str, description: str, field_names: List[str]) -> Card:
-        card = Card(title=title, description=description)
+    def _build_group_card(self, title_key: str, desc_key: str, field_names: List[str]) -> Card:
+        card = Card(title=t(title_key), description=t(desc_key))
+        self._group_cards.append((card, title_key, desc_key))
 
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
@@ -191,8 +193,9 @@ class SettingsPage(QWidget):
                 continue
             widget = self._build_field_widget(name, annotations.get(name, type(defaults[name])))
             self._field_widgets[name] = widget
-            label = QLabel(_humanize(name))
+            label = QLabel(self._field_label_text(name))
             label.setObjectName("FieldLabel")
+            self._field_labels[name] = label
             form.addRow(label, widget)
 
         card.body_layout.addLayout(form)
@@ -228,6 +231,25 @@ class SettingsPage(QWidget):
         line = QLineEdit(str(value))
         line.setProperty("field-type", type_.__name__ if isinstance(type_, type) else "str")
         return line
+
+    # ------------------------------------------------------------------
+    def _field_label_text(self, name: str) -> str:
+        key = f"field.{name}"
+        translated = t(key)
+        if translated == key:  # no translation found, fall back to humanised name
+            return _humanize(name)
+        return translated
+
+    def _retranslate(self, _locale: str) -> None:
+        self._title_label.setText(t("settings.title"))
+        self._subtitle_label.setText(t("settings.subtitle"))
+        self._save_btn.setText(t("settings.action.save"))
+        self._reset_btn.setText(t("settings.action.reset"))
+        for card, title_key, desc_key in self._group_cards:
+            card.title_label.setText(t(title_key))
+            card.description_label.setText(t(desc_key))
+        for name, label in self._field_labels.items():
+            label.setText(self._field_label_text(name))
 
     # ------------------------------------------------------------------
     def _save(self) -> None:

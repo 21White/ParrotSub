@@ -6,7 +6,6 @@ import sys
 import webbrowser
 from typing import Optional
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
     QApplication,
@@ -20,7 +19,8 @@ from PyQt6.QtWidgets import (
 from realtime_subtitle import app_config
 from realtime_subtitle.subtitle import RealtimeSubtitle
 
-from parrotsub import __version__
+from parrotsub import __version__, ui_config
+from parrotsub.i18n import LOCALE_LABELS, detect_default_locale, t, translator
 from parrotsub.pages.exports import ExportsPage
 from parrotsub.pages.home import HomePage
 from parrotsub.pages.settings import SettingsPage
@@ -30,9 +30,9 @@ from parrotsub.widgets.sidebar import Sidebar
 
 
 _NAV_ITEMS = [
-    ("mic", "Tasks"),
-    ("settings", "Settings"),
-    ("download", "Exports"),
+    ("mic", "nav.tasks"),
+    ("settings", "nav.settings"),
+    ("download", "nav.exports"),
 ]
 
 _GITHUB_URL = "https://github.com/21White/ParrotSub"
@@ -48,7 +48,18 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self._rs = rs
         self._cfg = cfg
-        self._theme: str = "light"
+
+        # Load persisted UI prefs (theme + locale).  ``locale == ""`` means
+        # "auto-detect" – we never persist the auto-detected value back unless
+        # the user explicitly toggles, so that flipping the OS language later
+        # still picks up the new default.
+        self._ui = ui_config.get()
+        if self._ui.locale and self._ui.locale in ("en", "zh"):
+            translator().set_locale(self._ui.locale)
+        else:
+            translator().set_locale(detect_default_locale())
+
+        self._theme: str = self._ui.theme if self._ui.theme in ("light", "dark") else "light"
         self._palette: Palette = LIGHT
 
         self.setWindowTitle("ParrotSub")
@@ -64,6 +75,7 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar(_NAV_ITEMS)
         self.sidebar.page_requested.connect(self._switch_page)
         self.sidebar.theme_toggled.connect(self._toggle_theme)
+        self.sidebar.language_toggled.connect(self._toggle_language)
         self.sidebar.github_requested.connect(lambda: webbrowser.open(_GITHUB_URL))
         root_layout.addWidget(self.sidebar)
 
@@ -95,11 +107,16 @@ class MainWindow(QMainWindow):
         # Plumb home page status changes into the header pill.
         self.home_page.status_changed.connect(self.header.status.set_state)
 
+        # React to locale changes for header status text.
+        translator().locale_changed.connect(self._on_locale_changed_header)
+
         # Default selection
         self.sidebar.set_active(0)
         self.stack.setCurrentIndex(0)
 
         self._apply_theme(self._theme)
+        # Push the initial localised "Idle" text into the header pill.
+        self.header.status.set_state("idle", t("status.idle"))
 
     # ------------------------------------------------------------------
     def _switch_page(self, index: int) -> None:
@@ -110,6 +127,23 @@ class MainWindow(QMainWindow):
 
     def _toggle_theme(self) -> None:
         self._apply_theme("dark" if self._theme == "light" else "light")
+        # Persist user choice.
+        self._ui.theme = self._theme
+        ui_config.save(self._ui)
+        # Acknowledge in the status pill.
+        label = "🌙 Dark" if self._theme == "dark" else "☀ Light"
+        self.header.status.set_state("active", t("status.theme_set", label=label))
+
+    def _toggle_language(self) -> None:
+        translator().toggle()
+        new_locale = translator().locale
+        self._ui.locale = new_locale
+        ui_config.save(self._ui)
+        # The status pill text is updated by ``_on_locale_changed_header``.
+
+    def _on_locale_changed_header(self, locale: str) -> None:
+        label = LOCALE_LABELS.get(locale, locale)
+        self.header.status.set_state("active", t("status.language_set", label=label))
 
     def _apply_theme(self, theme: str) -> None:
         self._theme = theme
@@ -129,7 +163,7 @@ class MainWindow(QMainWindow):
         self.home_page.refresh_from_config()
         self.exports_page._cfg = self._cfg  # noqa: SLF001
         self.exports_page.refresh()
-        self.header.status.set_state("active", "Settings saved")
+        self.header.status.set_state("active", t("status.settings_saved"))
 
     # ------------------------------------------------------------------
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt signature
