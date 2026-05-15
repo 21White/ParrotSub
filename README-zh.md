@@ -89,7 +89,8 @@ realtime-subtitle parse -f my-audio.wav
 ParrotSub/
 ├── README.md                # 英文 README
 ├── README-zh.md             # 本文档
-├── LICENSE                  # MIT（ParrotSub 自己）
+├── LICENSE                  # Apache-2.0（ParrotSub 自己）
+├── NOTICE                   # 第三方组件归属说明
 ├── THIRD_PARTY_LICENSES/
 │   └── realtime-subtitle.LICENSE   # MIT，内嵌后端的版权声明
 ├── pyproject.toml
@@ -137,4 +138,9 @@ ParrotSub/
 
 ## 许可证
 
-MIT，详见 [`LICENSE`](./LICENSE)。
+ParrotSub 采用 **Apache License 2.0**，详见 [`LICENSE`](./LICENSE) 与
+[`NOTICE`](./NOTICE)。
+
+`src/realtime_subtitle/` 内嵌的离线后端继续沿用原作者的 **MIT 许可证**
+（Copyright (c) 2025 glimmer），其完整许可文本按要求保留在
+[`THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`](./THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE)。

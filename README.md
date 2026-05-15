@@ -100,7 +100,8 @@ realtime-subtitle parse -f my-audio.wav
 ParrotSub/
 ├── README.md                # this file
 ├── README-zh.md
-├── LICENSE                  # MIT (ParrotSub)
+├── LICENSE                  # Apache-2.0 (ParrotSub)
+├── NOTICE                   # third-party attributions
 ├── THIRD_PARTY_LICENSES/
 │   └── realtime-subtitle.LICENSE   # MIT, vendored backend
 ├── pyproject.toml
@@ -166,4 +167,11 @@ from the **Exports** page.
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE).
+ParrotSub is released under the **Apache License 2.0** —
+see [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE).
+
+The vendored offline backend in `src/realtime_subtitle/` remains under
+its original **MIT License** (Copyright (c) 2025 glimmer). Its license
+text is preserved in
+[`THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`](./THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE)
+as required.

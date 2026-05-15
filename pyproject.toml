@@ -11,8 +11,8 @@ authors = [
 description = "ParrotSub – modern, shadcn-inspired desktop UI + offline realtime speech-to-subtitle for Apple Silicon Mac."
 readme = "README.md"
 requires-python = ">=3.9"
-license = "MIT"
-license-files = ["LICEN[CS]E*", "THIRD_PARTY_LICENSES/*"]
+license = "Apache-2.0"
+license-files = ["LICEN[CS]E*", "NOTICE", "THIRD_PARTY_LICENSES/*"]
 
 # All runtime dependencies of both the UI shell (parrotsub) and the
 # vendored speech-recognition backend (realtime_subtitle).
@@ -35,7 +35,7 @@ dependencies = [
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: MacOS",
-  "License :: OSI Approved :: MIT License",
+  "License :: OSI Approved :: Apache Software License",
   "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 

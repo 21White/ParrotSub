@@ -1,0 +1,26 @@
+ParrotSub
+Copyright 2026 21White
+
+This product is licensed under the Apache License, Version 2.0 (the "License");
+you may not use this product except in compliance with the License. You may
+obtain a copy of the License in the LICENSE file or at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+This product bundles third-party software. Their licenses are reproduced in
+the THIRD_PARTY_LICENSES/ directory.
+================================================================================
+
+realtime-subtitle
+-----------------
+Source:    https://github.com/caoqiming/realtime-subtitle
+License:   MIT
+Copyright: (c) 2025 glimmer
+Used in:   src/realtime_subtitle/*
+
+The offline realtime speech-to-subtitle backend bundled in
+``src/realtime_subtitle/`` is vendored verbatim from the upstream
+``realtime-subtitle`` project, licensed under the MIT License. The full
+upstream license text is reproduced in
+``THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE``.
