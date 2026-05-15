@@ -124,6 +124,13 @@ class HomePage(QWidget):
         self._export_btn.clicked.connect(self._on_export_clicked)
         row.addWidget(self._export_btn)
 
+        self._clear_btn = QPushButton(t("home.action.clear"))
+        self._clear_btn.setProperty("variant", "outline")
+        self._clear_btn.setMinimumHeight(36)
+        self._clear_btn.setToolTip(t("home.action.clear.tooltip"))
+        self._clear_btn.clicked.connect(self._on_clear_clicked)
+        row.addWidget(self._clear_btn)
+
         row.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
         self._device_label = QLabel(self._device_label_text())
@@ -186,6 +193,8 @@ class HomePage(QWidget):
             t("home.action.stop") if self._rs.running else t("home.action.start")
         )
         self._export_btn.setText(t("home.action.export"))
+        self._clear_btn.setText(t("home.action.clear"))
+        self._clear_btn.setToolTip(t("home.action.clear.tooltip"))
 
         # Subtitle cards
         self._original_card.title_label.setText(t("home.original.title"))
@@ -225,6 +234,7 @@ class HomePage(QWidget):
             make_icon("square" if running else "play", color=p.primary_foreground, size=18)
         )
         self._export_btn.setIcon(make_icon("save", color=p.foreground, size=18))
+        self._clear_btn.setIcon(make_icon("trash-2", color=p.foreground, size=18))
 
     # ------------------------------------------------------------------
     def _on_start_stop_clicked(self) -> None:
@@ -249,6 +259,61 @@ class HomePage(QWidget):
             self.status_changed.emit("active", t("status.exported"))
         except Exception as exc:  # surfaced in the status pill
             self.status_changed.emit("warn", t("status.export_failed", error=str(exc)))
+
+    def _on_clear_clicked(self) -> None:
+        """Wipe every recognised subtitle + the in-memory audio buffer.
+
+        Stops the pipeline first when it's still running so the worker
+        threads don't race with us mutating ``audio_buffer``.
+        """
+        if self._rs.running:
+            try:
+                self._rs.stop()
+            except Exception as exc:
+                print(f"[home] clear: stop() failed: {exc}")
+            self._start_btn.setText(t("home.action.start"))
+
+        # Take the backend lock for the same reason ``stop()`` does:
+        # the listen thread might still be flushing one last 1024-byte
+        # block into ``audio_buffer`` between ``stop()`` returning and
+        # this point.
+        try:
+            self._rs.lock.acquire()
+            self._rs.audio_buffer = bytes()
+            self._rs.start_index = 0
+            self._rs.start_time = 0.0
+            self._rs.current_buffer_length = 0
+            self._rs.archived_data.clear()
+            self._rs.temp_data.clear()
+        finally:
+            try:
+                self._rs.lock.release()
+            except RuntimeError:
+                pass
+
+        # Reset the GUI-side state machine so the next batch isn't
+        # treated as model thrashing.
+        self._last_all_text_length = 0
+        self._model_thrashing_count = 0
+        self._pending_original = ""
+        self._pending_translation = ""
+
+        # Flush both panes immediately.
+        self._original_view.set_text("")
+        self._translation_view.set_text("")
+        if self._floating_original is not None:
+            self._floating_original.update_content(
+                "", self._cfg.SubtitleLength, self._cfg.SubtitleHight
+            )
+        if self._floating_translation is not None:
+            self._floating_translation.update_content(
+                "",
+                self._cfg.TranslationSubtitleLength,
+                self._cfg.TranslationSubtitleHight,
+            )
+
+        self._refresh_action_icons()
+        self.status_changed.emit("active", t("status.cleared"))
 
     # ------------------------------------------------------------------
     def _toggle_original_floating(self, checked: bool) -> None:

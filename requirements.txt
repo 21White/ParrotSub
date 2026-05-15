@@ -10,6 +10,13 @@
 # UI
 PyQt6>=6.9.0
 
+# macOS-only: native NSWindow access so the floating subtitle overlay
+# can sit above other apps' windows (NSStatusWindowLevel). Installed
+# automatically only on Darwin; other platforms fall back to Qt's
+# WindowStaysOnTopHint.
+pyobjc-core>=10.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+
 # Realtime backend (mlx-whisper + argos-translate + speechbrain)
 numpy>=2.0.2
 argostranslate>=1.9.6

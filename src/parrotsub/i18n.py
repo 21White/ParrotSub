@@ -42,6 +42,7 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "status.settings_saved": "Settings saved",
         "status.language_set": "Language: {label}",
         "status.theme_set": "Theme: {label}",
+        "status.cleared": "History cleared",
 
         # Home page
         "home.tasks.title": "Tasks",
@@ -55,6 +56,11 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "home.action.start": " Start recording",
         "home.action.stop": " Stop recording",
         "home.action.export": " Export session",
+        "home.action.clear": " Clear history",
+        "home.action.clear.tooltip": (
+            "Stop the current pipeline (if running) and wipe the in-memory "
+            "audio buffer + every recognised subtitle so far."
+        ),
         "home.device_label": "Input: {device}    ·    Model: {model}",
         "home.floating.title": "Floating windows",
         "home.floating.desc": "Project the live subtitles on top of every other app.",
@@ -150,6 +156,7 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "status.settings_saved": "设置已保存",
         "status.language_set": "语言：{label}",
         "status.theme_set": "主题：{label}",
+        "status.cleared": "历史已清空",
 
         # Home page
         "home.tasks.title": "任务",
@@ -163,6 +170,11 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "home.action.start": "  开始录音",
         "home.action.stop": "  停止录音",
         "home.action.export": "  导出会话",
+        "home.action.clear": "  清空历史",
+        "home.action.clear.tooltip": (
+            "停止当前实时识别（如正在运行），并清空内存里的音频缓冲与所有"
+            "已识别的字幕。"
+        ),
         "home.device_label": "输入：{device}    ·    模型：{model}",
         "home.floating.title": "悬浮字幕窗",
         "home.floating.desc": "将实时字幕悬浮在其他所有应用之上。",

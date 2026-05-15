@@ -1,11 +1,29 @@
-"""Modern, frameless, translucent floating subtitle window."""
+"""Modern, frameless, translucent floating subtitle window.
+
+Implementation notes for the "always on top" behaviour
+======================================================
+
+- We deliberately *do not* use ``Qt.WindowType.Tool``: on macOS that
+  flag turns the window into a utility palette which gets demoted as
+  soon as ParrotSub itself loses focus, so the overlay is no longer
+  on top of e.g. a Safari window the user just clicked into.
+- ``Qt.WidgetAttribute.WA_ShowWithoutActivating`` keeps the focus on
+  whatever the user is doing in another app when the overlay first
+  appears.
+- On macOS we additionally try to bump the underlying ``NSWindow``
+  level to ``NSStatusWindowLevel`` (25) via the ``pyobjc`` bindings.
+  This is best-effort: if pyobjc is not installed the overlay still
+  works thanks to ``Qt.WindowType.WindowStaysOnTopHint`` – it just
+  won't sit on top of full-screen apps.
+"""
 
 from __future__ import annotations
 
+import sys
 from typing import Optional
 
 from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtGui import QMouseEvent, QShowEvent
 from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
@@ -58,9 +76,11 @@ class FloatingWindow(QMainWindow):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        # Do not steal focus from whatever the user is currently doing
+        # in another app when the overlay appears.
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
         # Container frame so we can apply rounded corners + subtle border.
         self._root = QFrame()
@@ -85,6 +105,52 @@ class FloatingWindow(QMainWindow):
         layout.addWidget(self._text)
 
         self.setCentralWidget(self._root)
+
+    # ------------------------------------------------------------------
+    # Always-on-top guarantee
+    # ------------------------------------------------------------------
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt signature
+        super().showEvent(event)
+        # Bring to front of the regular window stack first.
+        self.raise_()
+        # Then, on macOS, lift the underlying NSWindow above the menu bar
+        # so it stays on top even when other apps take focus.
+        self._bump_macos_window_level()
+
+    def _bump_macos_window_level(self) -> None:
+        """Best-effort: raise the NSWindow level on macOS via pyobjc.
+
+        Skipped silently when:
+        - we're not on macOS, or
+        - the active Qt platform plugin isn't ``cocoa`` (e.g. ``offscreen``
+          / ``minimal`` used by headless test runners – ``winId()`` would
+          point at fake memory and AppKit calls would segfault), or
+        - pyobjc is not installed.
+        """
+        if sys.platform != "darwin":
+            return
+        app = QApplication.instance()
+        if app is None or app.platformName().lower() != "cocoa":
+            return
+        try:
+            import objc  # type: ignore  # noqa: F401
+            import AppKit  # type: ignore  # noqa: F401
+        except Exception:
+            return
+        try:
+            view_id = int(self.winId())
+            if view_id == 0:
+                return
+            view = objc.objc_object(c_void_p=view_id)
+            ns_window = view.window()
+            if ns_window is None:
+                return
+            # NSStatusWindowLevel = 25 (above normal windows + menu bar).
+            # Use the integer literal because the symbolic constant
+            # location moved across pyobjc releases.
+            ns_window.setLevel_(25)
+        except Exception as exc:
+            print(f"[parrotsub] could not bump NSWindow level: {exc}")
 
     # ------------------------------------------------------------------
     # Drag-to-move support (the window is frameless).

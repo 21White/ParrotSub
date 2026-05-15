@@ -26,6 +26,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] – 2026-05-15
+
+### Added
+- **Clear history button on the Tasks page.** A new outline-style
+  button next to *Export* stops the live pipeline if it is still
+  running, takes the backend lock, and wipes the in-memory audio
+  buffer, every archived/temp segment, and the GUI's thrashing
+  counter — leaving both subtitle panes (and any open overlays)
+  empty. The header status pill confirms with `History cleared` /
+  `历史已清空`.
+  Tasks 页面新增 *清空历史* 按钮：在 *Export* 旁边，点击后会先停掉正在
+  运行的实时识别（如有），加锁清空音频缓冲与所有已识别的字幕段，并
+  重置 GUI 的防抖计数；原文 / 译文窗格和打开着的悬浮窗也会同步清空，
+  顶栏状态胶囊提示 `History cleared` / `历史已清空`。
+
+### Changed
+- **Floating subtitle overlays now genuinely stay on top across other
+  apps.** On macOS the previous `Qt.WindowType.Tool` flag caused the
+  overlay to demote to a normal window as soon as ParrotSub itself
+  lost focus, which let Safari / Code / Zoom etc. cover the
+  subtitles. The flag is gone; the overlay now uses
+  `Frameless | WindowStaysOnTopHint` plus the
+  `WA_ShowWithoutActivating` attribute so it never steals focus,
+  and on macOS we additionally bump the underlying `NSWindow.level`
+  to `NSStatusWindowLevel` (25) via pyobjc.
+  悬浮字幕窗现在能真正盖在其他应用之上。之前 `Qt.WindowType.Tool` 在
+  macOS 上会让 ParrotSub 失焦时悬浮窗降级，导致被 Safari / VSCode /
+  Zoom 等应用挡住。现已去掉该标志，改为 `Frameless +
+  WindowStaysOnTopHint + WA_ShowWithoutActivating`（不抢焦点），并在
+  macOS 上通过 pyobjc 把底层 `NSWindow.level` 提到
+  `NSStatusWindowLevel`（25）。
+- **`pyobjc-core` / `pyobjc-framework-Cocoa` are added as macOS-only
+  dependencies** so the NSWindow.level bump always works out of the
+  box. On other platforms the markers in `pyproject.toml` /
+  `requirements.txt` skip them. `start.sh` also tries a best-effort
+  install on macOS if the active venv doesn't have them yet.
+  新增 macOS 专属依赖 `pyobjc-core` / `pyobjc-framework-Cocoa`（通过
+  `sys_platform == 'darwin'` marker 限制），保证 NSWindow.level 调用
+  开箱即用。`start.sh` 也会在 macOS venv 没有它们时尽力补装一次。
+
+---
+
 ## [0.4.2] – 2026-05-15
 
 ### Changed
@@ -227,7 +269,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/21White/ParrotSub/releases/tag/v0.5.0
 [0.4.2]: https://github.com/21White/ParrotSub/releases/tag/v0.4.2
 [0.4.1]: https://github.com/21White/ParrotSub/releases/tag/v0.4.1
 [0.4.0]: https://github.com/21White/ParrotSub/releases/tag/v0.4.0

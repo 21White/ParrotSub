@@ -47,4 +47,15 @@ if ! python -c "import parrotsub" >/dev/null 2>&1; then
   pip install -q -e "$SCRIPT_DIR"
 fi
 
+# Best-effort: install pyobjc on macOS so the floating subtitle window
+# can sit above other apps' windows (NSStatusWindowLevel). Failure is
+# non-fatal; ParrotSub still works, the overlay just behaves like a
+# normal "stay on top" window within the active app.
+if [[ "$(uname -s)" == "Darwin" ]] \
+    && ! python -c "import objc, AppKit" >/dev/null 2>&1; then
+  echo "[parrotsub] installing pyobjc for guaranteed always-on-top overlays..." >&2
+  pip install -q 'pyobjc-core>=10.0' 'pyobjc-framework-Cocoa>=10.0' || \
+    echo "[parrotsub] pyobjc install failed; overlay will fall back to Qt's StaysOnTopHint." >&2
+fi
+
 exec parrotsub "$@"
