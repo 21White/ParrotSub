@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+*.so
+
+# Virtualenvs
+.venv/
+venv/
+env/
+.python-version
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# ParrotSub runtime artefacts
+# (the upstream pipeline writes WAV / SRT / LRC / HTML to ~/Desktop/realtime-subtitle/
+#  by default – nothing local to ignore, but keep this section for clarity.)
+
+# Whisper / HuggingFace caches if a contributor pulls them into the repo by mistake.
+whisper-models/
+*.mlmodelc/
+.huggingface/

@@ -1,0 +1,32 @@
+# ParrotSub direct dependencies (Apple Silicon Mac).
+# Install with:
+#   pip install -r requirements.txt
+#   pip install -e .
+#
+# The first command pulls every transitive dep that the offline realtime
+# backend needs; the second installs ParrotSub itself in editable mode so
+# `parrotsub` is on your PATH.
+
+# UI
+PyQt6>=6.9.0
+
+# Realtime backend (mlx-whisper + argos-translate + speechbrain)
+numpy>=2.0.2
+argostranslate>=1.9.6
+torch>=2.7.0
+torchaudio>=2.7.0
+mlx-whisper==0.4.2
+mlx>=0.25.1
+scikit-learn>=1.6.1
+translate>=3.6.1
+# Override the upstream pin – speechbrain 1.0.3 breaks on torchaudio>=2.9.
+speechbrain>=1.1.0
+PyAudio>=0.2.14
+
+# Common transitive deps that the upstream lockfile pinned;
+# left unpinned so pip resolves something compatible with the above.
+huggingface-hub>=0.31.1
+tqdm>=4.67.0
+requests>=2.32.0
+PyYAML>=6.0
+HyperPyYAML>=1.2.0

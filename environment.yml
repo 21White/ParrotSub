@@ -1,0 +1,29 @@
+name: parrotsub
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - portaudio
+  - pip:
+      # UI
+      - PyQt6>=6.9.0
+      # Realtime backend
+      - numpy>=2.0.2
+      - argostranslate>=1.9.6
+      - torch>=2.7.0
+      - torchaudio>=2.7.0
+      - mlx-whisper==0.4.2
+      - mlx>=0.25.1
+      - scikit-learn>=1.6.1
+      - translate>=3.6.1
+      - speechbrain>=1.1.0
+      - PyAudio>=0.2.14
+      - huggingface-hub>=0.31.1
+      - tqdm>=4.67.0
+      - requests>=2.32.0
+      - PyYAML>=6.0
+      - HyperPyYAML>=1.2.0
+      # ParrotSub itself (this directory, editable)
+      - -e .
