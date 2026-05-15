@@ -24,6 +24,12 @@ from realtime_subtitle.subtitle import RealtimeSubtitle
 
 from parrotsub.i18n import t, translator
 from parrotsub.icons import make_icon
+from parrotsub.languages import (
+    is_english_only_model,
+    label as language_label,
+    source_language_options,
+    target_language_options,
+)
 from parrotsub.theme import Palette
 from parrotsub.widgets.card import Card
 from parrotsub.widgets.switch import Switch
@@ -53,7 +59,6 @@ _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
         "settings.group.translation.desc",
         [
             "EnableTranslation",
-            "OnlineTranslation",
             "TranslateFrom",
             "TranslateTo",
             "TranslationPresantDelay",
@@ -92,7 +97,13 @@ _FIELD_GROUPS: List[Tuple[str, str, List[str]]] = [
     ),
 ]
 
-_HIDDEN_FIELDS = {"AllModelName"}
+_HIDDEN_FIELDS = {
+    "AllModelName",
+    # Online translation is parked until a future release; keep the
+    # backend field but never expose it in the UI and force-write False
+    # on every save so the offline argos pipeline always wins.
+    "OnlineTranslation",
+}
 
 
 class SettingsPage(QWidget):
@@ -210,6 +221,9 @@ class SettingsPage(QWidget):
             options = list(dict.fromkeys([self._cfg.ModelName, *self._cfg.AllModelName]))
             combo.addItems(options)
             combo.setCurrentText(self._cfg.ModelName)
+            # When the user picks a different whisper model, refresh the
+            # TranslateFrom dropdown (English-only models lock it to "en").
+            combo.currentTextChanged.connect(self._on_model_changed)
             return combo
 
         if name == "InputDevice":
@@ -223,6 +237,20 @@ class SettingsPage(QWidget):
             combo.setCurrentText(str(self._cfg.InputDevice))
             return combo
 
+        if name == "TranslateFrom":
+            combo = QComboBox()
+            self._populate_language_combo(
+                combo,
+                source_language_options(self._cfg.ModelName),
+                str(value),
+            )
+            return combo
+
+        if name == "TranslateTo":
+            combo = QComboBox()
+            self._populate_language_combo(combo, target_language_options(), str(value))
+            return combo
+
         if isinstance(value, bool) or type_ is bool:
             sw = Switch()
             sw.setChecked(bool(value))
@@ -231,6 +259,49 @@ class SettingsPage(QWidget):
         line = QLineEdit(str(value))
         line.setProperty("field-type", type_.__name__ if isinstance(type_, type) else "str")
         return line
+
+    # ------------------------------------------------------------------
+    # Language combo helpers
+    # ------------------------------------------------------------------
+    def _populate_language_combo(
+        self,
+        combo: "QComboBox",
+        options: List[Tuple[str, str]],
+        current_code: str,
+    ) -> None:
+        """Fill ``combo`` with ``(code, label)`` items, selecting ``current_code``.
+
+        Always preserves the currently saved code even if it is not in
+        ``options`` (so legacy/manual values stay visible to the user).
+        """
+        codes_in_options = {code for code, _ in options}
+        items: List[Tuple[str, str]] = list(options)
+        if current_code and current_code not in codes_in_options:
+            items.insert(0, (current_code, language_label(current_code)))
+
+        combo.blockSignals(True)
+        combo.clear()
+        for code, lbl in items:
+            combo.addItem(lbl, userData=code)
+        # Select the row whose userData matches the saved code.
+        for i in range(combo.count()):
+            if combo.itemData(i) == current_code:
+                combo.setCurrentIndex(i)
+                break
+        combo.blockSignals(False)
+
+    def _on_model_changed(self, new_model: str) -> None:
+        """Re-build the TranslateFrom combo when the whisper model changes."""
+        combo = self._field_widgets.get("TranslateFrom")
+        if combo is None or not isinstance(combo, QComboBox):
+            return
+        current_code = combo.currentData() or ""
+        new_options = source_language_options(new_model)
+        # If the active source no longer fits (e.g. switching to a .en model
+        # while "zh" is selected), default to "en".
+        if is_english_only_model(new_model):
+            current_code = "en"
+        self._populate_language_combo(combo, new_options, current_code)
 
     # ------------------------------------------------------------------
     def _field_label_text(self, name: str) -> str:
@@ -257,7 +328,11 @@ class SettingsPage(QWidget):
         for name, widget in self._field_widgets.items():
             current_value = defaults.get(name)
             if isinstance(widget, QComboBox):
-                new_value = widget.currentText()
+                # For our language pickers we stored the code in userData;
+                # for the model / device combos there is no userData so
+                # fall back to the visible text.
+                data = widget.currentData()
+                new_value = data if data is not None else widget.currentText()
             elif isinstance(widget, Switch):
                 new_value = widget.isChecked()
             elif isinstance(widget, QLineEdit):
@@ -280,6 +355,11 @@ class SettingsPage(QWidget):
                 continue
             defaults[name] = new_value
 
+        # Online translation is parked for a future release. Force it off
+        # on every save so toggling it via direct config edits doesn't
+        # silently re-enable it from the UI's perspective.
+        defaults["OnlineTranslation"] = False
+
         app_config.save(self._cfg)
         self.saved.emit()
 
@@ -287,7 +367,15 @@ class SettingsPage(QWidget):
         fresh = app_config.AppConfig()
         for name, widget in self._field_widgets.items():
             value = fresh.__dict__.get(name)
-            if isinstance(widget, QComboBox):
+            if name == "TranslateFrom" and isinstance(widget, QComboBox):
+                self._populate_language_combo(
+                    widget,
+                    source_language_options(self._cfg.ModelName),
+                    str(value),
+                )
+            elif name == "TranslateTo" and isinstance(widget, QComboBox):
+                self._populate_language_combo(widget, target_language_options(), str(value))
+            elif isinstance(widget, QComboBox):
                 widget.setCurrentText(str(value))
             elif isinstance(widget, Switch):
                 widget.setChecked(bool(value))

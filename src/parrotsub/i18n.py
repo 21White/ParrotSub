@@ -50,7 +50,7 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "home.original.desc": "Live whisper transcription from your selected input device.",
         "home.original.placeholder": "Speak into your microphone, recognised text will appear here.",
         "home.translation.title": "Translation",
-        "home.translation.desc": "{src} → {tgt} (offline argos / online).",
+        "home.translation.desc": "{src} → {tgt} · offline (argos-translate)",
         "home.translation.placeholder": "Translated text will stream here when translation is enabled.",
         "home.action.start": " Start recording",
         "home.action.stop": " Stop recording",
@@ -75,7 +75,12 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "settings.group.model.title": "Whisper model",
         "settings.group.model.desc": "Pick the speech-recognition model and tuning thresholds.",
         "settings.group.translation.title": "Translation",
-        "settings.group.translation.desc": "Translate the live transcript online or fully offline (argos).",
+        "settings.group.translation.desc": (
+            "Translate the live transcript fully offline with "
+            "argos-translate. Pick the spoken (source) language and "
+            "the language to translate into. Online translation is "
+            "planned for a future release."
+        ),
         "settings.group.subtitle.title": "Subtitle layout",
         "settings.group.subtitle.desc": "Wrap & line-count for both transcript and translation panes.",
         "settings.group.floating.title": "Floating window",
@@ -153,7 +158,7 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "home.original.desc": "来自所选输入设备的实时 Whisper 识别结果。",
         "home.original.placeholder": "对着麦克风说话，识别结果会出现在这里。",
         "home.translation.title": "译文",
-        "home.translation.desc": "{src} → {tgt}（离线 argos / 在线）。",
+        "home.translation.desc": "{src} → {tgt} · 离线翻译（argos-translate）",
         "home.translation.placeholder": "启用翻译后，译文会在这里实时显示。",
         "home.action.start": "  开始录音",
         "home.action.stop": "  停止录音",
@@ -178,7 +183,11 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "settings.group.model.title": "Whisper 模型",
         "settings.group.model.desc": "选择语音识别模型，以及解码相关的阈值。",
         "settings.group.translation.title": "翻译",
-        "settings.group.translation.desc": "用在线服务或完全离线的 argos 翻译实时字幕。",
+        "settings.group.translation.desc": (
+            "使用 argos-translate 完全离线地翻译实时字幕。从下拉框中"
+            "选择语音的源语言和要翻译成的目标语言。在线翻译已规划在"
+            "后续版本中加入。"
+        ),
         "settings.group.subtitle.title": "字幕排版",
         "settings.group.subtitle.desc": "原文与译文窗格的换行长度和保留行数。",
         "settings.group.floating.title": "悬浮窗",

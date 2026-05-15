@@ -26,6 +26,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] – 2026-05-15
+
+### Added
+- **Translation language pickers** – the *Translate From* / *Translate
+  To* fields on the Settings page are now dropdown menus instead of
+  free-text inputs. Each option shows the language's endonym plus its
+  ISO code (e.g. `中文 (zh)`, `日本語 (ja)`).
+  Settings 页面的 *Translate From / Translate To* 改为下拉菜单，每一项
+  以「原文名 + ISO 代码」展示（例如 `中文 (zh)`、`日本語 (ja)`）。
+- **Smart source-language list** – choices are the intersection of
+  Whisper-recognisable languages and argos-translate language packages
+  (≈43 source languages / 47 target languages). When a `*.en-mlx`
+  English-only Whisper model is selected, the source dropdown
+  automatically locks to English.
+  源语言列表是 Whisper 识别语言与 argos-translate 翻译语言的交集
+  （约 43 种源语言 / 47 种目标语言）。一旦选了 `*.en-mlx` 这种仅英文
+  的 Whisper 模型，源语言会自动锁死为 English。
+- New `parrotsub.languages` module: language-name lookup, the curated
+  Whisper × argos lists and the helper functions used by the Settings
+  page.
+  新增 `parrotsub.languages` 模块：语言名查找、Whisper × argos 取交
+  的列表，以及 Settings 页面用到的辅助函数。
+
+### Changed
+- Home page's *Translation* card description now shows the source /
+  target language by their friendly endonym name instead of the raw
+  ISO code (e.g. `日本語 → 中文 · offline (argos-translate)`).
+  Home 页面 *Translation* 卡片描述改为按语言原名展示源/目标语言，
+  不再显示纯 ISO 代码（例如 `日本語 → 中文 · 离线翻译（argos-translate）`）。
+
+### Removed
+- **Online translation toggle** – the *OnlineTranslation* setting is
+  no longer surfaced in the UI; it stays in the backend config and is
+  force-written to `false` on every save. Online translation is parked
+  and will return in a future release.
+  移除 UI 中的 *OnlineTranslation* 开关；该字段在后端配置中保留，
+  每次保存都会被强制写为 `false`。在线翻译功能将在后续版本回归。
+
+---
+
 ## [0.3.0] – 2026-05-15
 
 ### Added
@@ -129,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/21White/ParrotSub/releases/tag/v0.4.0
 [0.3.0]: https://github.com/21White/ParrotSub/releases/tag/v0.3.0
 [0.2.0]: https://github.com/21White/ParrotSub/releases/tag/v0.2.0

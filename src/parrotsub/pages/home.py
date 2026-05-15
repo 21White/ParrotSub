@@ -21,6 +21,7 @@ from realtime_subtitle.subtitle import RealtimeSubtitle
 
 from parrotsub.i18n import t, translator
 from parrotsub.icons import make_icon
+from parrotsub.languages import LANGUAGE_NAMES
 from parrotsub.theme import Palette
 from parrotsub.widgets.card import Card
 from parrotsub.widgets.floating import FloatingWindow
@@ -163,10 +164,12 @@ class HomePage(QWidget):
     # i18n
     # ------------------------------------------------------------------
     def _translation_desc_text(self) -> str:
+        src_code = self._cfg.TranslateFrom
+        tgt_code = self._cfg.TranslateTo
         return t(
             "home.translation.desc",
-            src=self._cfg.TranslateFrom,
-            tgt=self._cfg.TranslateTo,
+            src=LANGUAGE_NAMES.get(src_code, src_code),
+            tgt=LANGUAGE_NAMES.get(tgt_code, tgt_code),
         )
 
     def _device_label_text(self) -> str:
