@@ -173,6 +173,29 @@ def is_english_only_model(model_name: str) -> bool:
     return ".en" in (model_name or "").lower()
 
 
+# Codes that show up in legacy free-text configs but are not valid
+# ISO-639-1 / argos identifiers. Mapped to their canonical equivalents.
+LEGACY_CODE_FIXES: dict[str, str] = {
+    "cn": "zh",   # "China" / Mandarin – proper code is zh
+    "tw": "zt",   # Traditional Chinese (argos uses zt)
+    "jp": "ja",   # Japan – proper code is ja
+    "kr": "ko",   # Korea – proper code is ko
+    "uk": "uk",   # Ukrainian – kept as-is (uk is valid; do NOT remap to en)
+    "us": "en",   # User likely meant English
+    "gb": "en",
+}
+
+
+def migrate_legacy_code(code: str) -> str:
+    """Return the canonical language code for a legacy/typo input.
+
+    Returns ``code`` unchanged when no migration is needed.
+    """
+    if not code:
+        return code
+    return LEGACY_CODE_FIXES.get(code.lower(), code)
+
+
 def label(code: str) -> str:
     """Return a friendly label for a language code, e.g. ``中文 (zh)``."""
     name = LANGUAGE_NAMES.get(code, code)

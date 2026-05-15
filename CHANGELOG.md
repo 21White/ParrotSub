@@ -26,6 +26,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] – 2026-05-15
+
+### Fixed
+- **App no longer crashes when the saved language code is invalid.**
+  The vendored backend used to call `next(filter(...))` on the argos
+  package list and raise `StopIteration` when the saved
+  `TranslateFrom` / `TranslateTo` codes were wrong (e.g. `"cn"` from
+  the pre-v0.4.0 free-text input), bringing the whole app down before
+  the UI could even appear. The init now:
+  1. Skips the download when the requested language pair is already
+     installed locally;
+  2. Falls back to "translation disabled, log a warning" when the
+     pair is missing from the argos index;
+  3. Wraps per-segment translation in a try/except so a single
+     failed translation never tears down the worker thread.
+  应用因为旧配置里语言代码非法（例如 v0.4.0 之前自由输入的 `"cn"`）
+  而崩溃的问题已修复——内嵌后端原本会 `next(filter(...))` 抛
+  `StopIteration`，UI 还没来得及出现就已经 crash。现在改为：已安装
+  就跳过下载；找不到包就关掉翻译并给出警告；单条翻译失败也不会再
+  把后台线程拖垮。
+
+### Added
+- `parrotsub.languages.migrate_legacy_code()` and an auto-migration
+  pass in `parrotsub.app.launch()` that rewrites well-known invalid
+  codes (`cn → zh`, `tw → zt`, `jp → ja`, `kr → ko`, `us/gb → en`)
+  in the saved config and persists the fix on first launch.
+  新增 `migrate_legacy_code()` 与启动时的自动迁移：把已知的非法/俗
+  写代码（`cn → zh`、`tw → zt`、`jp → ja`、`kr → ko`、`us/gb → en`）
+  写回成合法的 ISO 代码，下次启动彻底无感。
+
+---
+
 ## [0.4.0] – 2026-05-15
 
 ### Added
@@ -169,7 +201,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/21White/ParrotSub/releases/tag/v0.4.1
 [0.4.0]: https://github.com/21White/ParrotSub/releases/tag/v0.4.0
 [0.3.0]: https://github.com/21White/ParrotSub/releases/tag/v0.3.0
 [0.2.0]: https://github.com/21White/ParrotSub/releases/tag/v0.2.0

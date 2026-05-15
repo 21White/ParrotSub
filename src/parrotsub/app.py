@@ -21,6 +21,7 @@ from realtime_subtitle.subtitle import RealtimeSubtitle
 
 from parrotsub import __version__, ui_config
 from parrotsub.i18n import LOCALE_LABELS, detect_default_locale, t, translator
+from parrotsub.languages import migrate_legacy_code
 from parrotsub.pages.exports import ExportsPage
 from parrotsub.pages.home import HomePage
 from parrotsub.pages.settings import SettingsPage
@@ -179,6 +180,28 @@ class MainWindow(QMainWindow):
 def launch() -> int:
     """Boot a QApplication, build the backend & main window, and run the loop."""
     cfg = app_config.get()
+
+    # Auto-migrate legacy / invalid language codes that may have been typed
+    # into the old free-text inputs (e.g. ``cn`` -> ``zh``). Without this
+    # the upstream backend used to crash with ``StopIteration`` because no
+    # argos package matches an invalid code.
+    migrated = []
+    for attr in ("TranslateFrom", "TranslateTo"):
+        old = getattr(cfg, attr, "")
+        new = migrate_legacy_code(old)
+        if new != old:
+            setattr(cfg, attr, new)
+            migrated.append(f"{attr}: {old!r} -> {new!r}")
+    if migrated:
+        print(
+            "[parrotsub] migrated legacy language codes: "
+            + ", ".join(migrated),
+            flush=True,
+        )
+        try:
+            app_config.save(cfg)
+        except Exception as exc:
+            print(f"[parrotsub] could not persist migrated config: {exc}", flush=True)
 
     # The backend constructor downloads / loads heavy models; do it before the
     # event loop starts so the UI doesn't appear unresponsive.

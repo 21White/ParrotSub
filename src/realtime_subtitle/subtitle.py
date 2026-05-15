@@ -184,12 +184,21 @@ class RealtimeSubtitle:
                 continue
 
             if cfg.EnableTranslation:
-                if cfg.OnlineTranslation:
-                    new_data.translated_text = self.OnlineTranslator.translate(
-                        new_data.text)
-                else:
-                    new_data.translated_text = argostranslate.translate.translate(
-                        new_data.text, cfg.TranslateFrom, cfg.TranslateTo)
+                # ParrotSub patch: never let a per-segment translation
+                # error tear down the worker thread.
+                try:
+                    if cfg.OnlineTranslation:
+                        new_data.translated_text = self.OnlineTranslator.translate(
+                            new_data.text)
+                    else:
+                        new_data.translated_text = argostranslate.translate.translate(
+                            new_data.text, cfg.TranslateFrom, cfg.TranslateTo)
+                except Exception as exc:
+                    new_data.translated_text = ""
+                    if not getattr(self, "_translation_warned", False):
+                        print(f"[warning] translation failed: {exc}; "
+                              "subsequent failures will be silenced.")
+                        self._translation_warned = True
 
             if i < len(segments) - TEMP_SEGMENT_SIZE:
                 self.archived_data.append(new_data)
@@ -357,17 +366,45 @@ class RealtimeSubtitle:
             self.OnlineTranslator = Translator(
                 from_lang=cfg.TranslateFrom, to_lang=cfg.TranslateTo)
         else:
-            # 本地翻译
+            # 本地翻译 (ParrotSub patch: skip if already installed,
+            # tolerate missing packages instead of hard-crashing)
             print("init local translator...")
-            argostranslate.package.update_package_index()
-            available_packages = argostranslate.package.get_available_packages()
-            package_to_install = next(
-                filter(
-                    lambda x: x.from_code == cfg.TranslateFrom and x.to_code == cfg.TranslateTo, available_packages
+            try:
+                already = any(
+                    p.from_code == cfg.TranslateFrom and p.to_code == cfg.TranslateTo
+                    for p in argostranslate.package.get_installed_packages()
                 )
-            )
-            argostranslate.package.install_from_path(
-                package_to_install.download())
+                if already:
+                    print(
+                        f"argos package {cfg.TranslateFrom}->{cfg.TranslateTo} "
+                        "already installed, skipping download"
+                    )
+                else:
+                    argostranslate.package.update_package_index()
+                    available_packages = argostranslate.package.get_available_packages()
+                    package_to_install = next(
+                        (
+                            x for x in available_packages
+                            if x.from_code == cfg.TranslateFrom
+                            and x.to_code == cfg.TranslateTo
+                        ),
+                        None,
+                    )
+                    if package_to_install is None:
+                        print(
+                            "[warning] no offline translation package available for "
+                            f"{cfg.TranslateFrom!r} -> {cfg.TranslateTo!r}; "
+                            "translation will be skipped. Pick a supported language "
+                            "pair from the Settings page or set EnableTranslation=False."
+                        )
+                    else:
+                        argostranslate.package.install_from_path(
+                            package_to_install.download())
+            except Exception as exc:
+                print(
+                    f"[warning] local translator init failed ({exc}); "
+                    "continuing without translation."
+                )
         # 初始化声纹识别
         print("init speech recognition...")
         self.speech_recognition = glimmer_speech_recognition.SpeechRecognition()
