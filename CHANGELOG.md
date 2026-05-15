@@ -26,6 +26,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.2] – 2026-05-15
+
+### Changed
+- **Curated translation language list.** The *Translate From* /
+  *Translate To* dropdowns no longer offer dozens of obscure options.
+  They are now restricted to the nine languages the project actually
+  cares about, in a fixed, intuitive order:
+  `简体中文 (zh)`, `繁體中文 (zt)`, `English (en)`, `Français (fr)`,
+  `Deutsch (de)`, `日本語 (ja)`, `한국어 (ko)`, `Español (es)`,
+  `Русский (ru)`. English-only Whisper models still collapse the
+  source dropdown to English alone.
+  *Translate From* / *Translate To* 的下拉菜单不再展示几十种冷门语言，
+  现在固定在我们关心的 9 种里，按预设顺序排列：简体中文、繁體中文、
+  English、Français、Deutsch、日本語、한국어、Español、Русский。
+  英文专用的 Whisper 模型仍然会把源语言强制收缩为仅 English。
+- Removed the now-unused `WHISPER_LANGUAGE_CODES` and
+  `ARGOS_LANGUAGE_CODES` tables from `parrotsub.languages` in favour
+  of a single `CURATED_LANGUAGE_CODES` tuple. Existing configs that
+  reference a language outside the curated list still keep working —
+  the saved value stays selected at the top of the dropdown.
+  从 `parrotsub.languages` 移除了不再使用的 `WHISPER_LANGUAGE_CODES`
+  和 `ARGOS_LANGUAGE_CODES`，统一为一个 `CURATED_LANGUAGE_CODES`。
+  老配置里如果引用了 9 种之外的语言，下拉框会把它保留在最上方继续可用。
+
+---
+
 ## [0.4.1] – 2026-05-15
 
 ### Fixed
@@ -201,7 +227,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/21White/ParrotSub/releases/tag/v0.4.2
 [0.4.1]: https://github.com/21White/ParrotSub/releases/tag/v0.4.1
 [0.4.0]: https://github.com/21White/ParrotSub/releases/tag/v0.4.0
 [0.3.0]: https://github.com/21White/ParrotSub/releases/tag/v0.3.0

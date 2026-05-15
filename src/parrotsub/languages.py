@@ -1,26 +1,24 @@
 """Language tables for the Settings page dropdowns.
 
-Two facts inform the dropdown contents:
-
-1. **Whisper** can transcribe ~99 languages. The full code → name table
-   matches OpenAI's reference list. Whisper model names that contain
-   ``.en`` (e.g. ``whisper-tiny.en-mlx``) are *English-only* variants
-   and only produce useful results for English audio.
-2. **argos-translate** ships translation packages for a smaller subset.
-   The intersection of these two is what we expose for the
-   ``TranslateFrom`` dropdown so that, after Whisper recognises the
-   speech, we can actually translate it offline.
-
-For ``TranslateTo`` we list every language argos can translate *into*
-(via English pivot when no direct package exists).
+ParrotSub deliberately exposes a small, hand-picked set of nine
+languages – Simplified & Traditional Chinese, English, French, German,
+Japanese, Korean, Spanish and Russian – instead of the full ~99 that
+whisper recognises or the ~47 that argos-translate could in theory
+ship. The shorter list keeps the picker scannable, every entry is
+known to be installable from the argos package index, and every entry
+is also a language whisper can transcribe.
 
 We intentionally show each language as ``"Endonym (code)"`` (e.g.
 ``中文 (zh)``) so the picker is locale-independent.
+
+When a Whisper model name contains ``.en`` (e.g.
+``whisper-tiny.en-mlx``) it is an English-only variant and the
+*Translate From* dropdown collapses to English only.
 """
 
 from __future__ import annotations
 
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -140,31 +138,21 @@ LANGUAGE_NAMES: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# Whisper recognises ~99 languages. Source: OpenAI whisper/tokenizer.py
+# Curated language set – the *only* languages exposed in the Settings
+# dropdowns. Order is intentional (most-relevant first, no alphabetical
+# sort) so the picker stays predictable for the typical user. Every
+# entry is supported by both whisper and argos-translate.
 # ---------------------------------------------------------------------------
-WHISPER_LANGUAGE_CODES: tuple[str, ...] = (
-    "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl",
-    "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk",
-    "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr",
-    "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn",
-    "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne",
-    "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn",
-    "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi",
-    "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my",
-    "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su",
-)
-
-# ---------------------------------------------------------------------------
-# argos-translate has shipped translation packages for these languages
-# (either as a direct pair or via the English pivot). Kept conservative
-# so every option is downloadable when the user picks it.
-# ---------------------------------------------------------------------------
-ARGOS_LANGUAGE_CODES: tuple[str, ...] = (
-    "ar", "az", "bg", "bn", "ca", "cs", "da", "de", "el", "en", "eo",
-    "es", "et", "fa", "fi", "fr", "ga", "he", "hi", "hu", "id", "it",
-    "ja", "ko", "lt", "lv", "ms", "nb", "nl", "pl", "pt", "ro", "ru",
-    "sk", "sl", "sq", "sv", "sw", "ta", "th", "tl", "tr", "uk", "ur",
-    "vi", "zh", "zt",
+CURATED_LANGUAGE_CODES: tuple[str, ...] = (
+    "zh",   # 简体中文
+    "zt",   # 繁體中文
+    "en",   # English
+    "fr",   # Français
+    "de",   # Deutsch
+    "ja",   # 日本語
+    "ko",   # 한국어
+    "es",   # Español
+    "ru",   # Русский
 )
 
 
@@ -204,27 +192,20 @@ def label(code: str) -> str:
     return f"{name} ({code})"
 
 
-def _ordered_intersect(a: Iterable[str], b: Iterable[str]) -> List[str]:
-    seen = set(b)
-    keep = [c for c in a if c in seen]
-    return sorted(set(keep), key=lambda x: label(x).casefold())
-
-
 def source_language_options(model_name: str = "") -> List[Tuple[str, str]]:
     """``[(code, label), ...]`` for the **Translate From** dropdown.
 
-    Filters Whisper's full language list down to those argos can also
-    translate from. If the active Whisper model is an English-only
-    variant (``.en`` in the name), only English is offered.
+    The list is the curated 9-language set (zh, zt, en, fr, de, ja, ko,
+    es, ru). When the active Whisper model is English-only (``.en`` in
+    the name), only English is offered.
     """
     if is_english_only_model(model_name):
-        codes = ["en"]
+        codes: List[str] = ["en"]
     else:
-        codes = _ordered_intersect(WHISPER_LANGUAGE_CODES, ARGOS_LANGUAGE_CODES)
+        codes = list(CURATED_LANGUAGE_CODES)
     return [(c, label(c)) for c in codes]
 
 
 def target_language_options() -> List[Tuple[str, str]]:
     """``[(code, label), ...]`` for the **Translate To** dropdown."""
-    codes = sorted(set(ARGOS_LANGUAGE_CODES), key=lambda x: label(x).casefold())
-    return [(c, label(c)) for c in codes]
+    return [(c, label(c)) for c in CURATED_LANGUAGE_CODES]
