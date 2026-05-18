@@ -26,6 +26,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.1] – 2026-05-18
+
+### Changed
+- **Subtitle layout defaults retuned for the floating overlay.**
+  Fresh installs and the *Settings → Reset to defaults* action now use
+  a wider, shorter shape that reads better in the on-top overlays:
+
+  | Field                          | Old | New |
+  | ------------------------------ | --- | --- |
+  | `SubtitleLength`               | 80  | **90** |
+  | `SubtitleHight` (line count)   | 3   | **2**  |
+  | `TranslationSubtitleLength`    | 39  | **50** |
+  | `TranslationSubtitleHight`     | 3   | **2**  |
+
+  字幕排版的默认值已调优：原文单行从 80 拉宽到 **90**，译文从 39 拉宽
+  到 **50**，原文 / 译文的可见行数都从 3 改为 **2**，让悬浮字幕窗
+  看起来更紧凑、更易读。仅影响新装环境与 *Settings → Reset to
+  defaults*；老用户已经保存过的配置不会被覆盖。
+
+---
+
 ## [0.5.0] – 2026-05-15
 
 ### Added
@@ -269,7 +290,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/21White/ParrotSub/releases/tag/v0.5.1
 [0.5.0]: https://github.com/21White/ParrotSub/releases/tag/v0.5.0
 [0.4.2]: https://github.com/21White/ParrotSub/releases/tag/v0.4.2
 [0.4.1]: https://github.com/21White/ParrotSub/releases/tag/v0.4.1

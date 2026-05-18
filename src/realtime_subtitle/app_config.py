@@ -34,10 +34,12 @@ class AppConfig:
     EnableSpeakerRecognition: bool = True
     DbscanEps: float = 0.95
     # UI
-    SubtitleLength: int = 80
-    SubtitleHight: int = 3
-    TranslationSubtitleLength: int = 39
-    TranslationSubtitleHight: int = 3
+    # NOTE: defaults tuned by ParrotSub (wider lines, 2 visible rows
+    # so the floating overlay stays compact).
+    SubtitleLength: int = 90
+    SubtitleHight: int = 2
+    TranslationSubtitleLength: int = 50
+    TranslationSubtitleHight: int = 2
     ModelRefuseThreshold: int = 3
     TranslationPresantDelay: int = 0  # 在最新的多少个segment之后才显示翻译，避免翻译显示抖动严重
     FloatingWindowFontSize: int = 20
