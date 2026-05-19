@@ -123,12 +123,26 @@ class RealtimeSubtitle:
                 start_time = time.time()
                 audio_np = np.frombuffer(
                     current_buffer, dtype=np.int16).astype(np.float32) / 32768.0
-                result = mlx_whisper.transcribe(
-                    audio_np, path_or_hf_repo=self.model_name,
-                    condition_on_previous_text=False,
-                    no_speech_threshold=cfg.NoSpeechThreshold,
-                    logprob_threshold=cfg.LogprobThreshold,
-                    temperature=(0.0, 0.2))
+                # ParrotSub patch: don't let a transient transcribe error
+                # (missing model, OOM, etc.) kill the worker thread.
+                try:
+                    result = mlx_whisper.transcribe(
+                        audio_np, path_or_hf_repo=self.model_name,
+                        condition_on_previous_text=False,
+                        no_speech_threshold=cfg.NoSpeechThreshold,
+                        logprob_threshold=cfg.LogprobThreshold,
+                        temperature=(0.0, 0.2))
+                except Exception as exc:
+                    if not getattr(self, "_transcribe_warned", False):
+                        print(
+                            f"[warning] transcribe failed: {exc}; "
+                            "subsequent failures will be silenced. "
+                            "Download a model from Settings → Whisper Model.",
+                            flush=True,
+                        )
+                        self._transcribe_warned = True
+                    time.sleep(max(0.5, cfg.Latency))
+                    continue
                 end_time = time.time()
                 used_time = end_time - start_time
 
@@ -356,9 +370,24 @@ class RealtimeSubtitle:
 
     def __init__(self):
         # 先运行一次，导入模型
+        # ParrotSub patch: never let the warm-up take the whole process
+        # down. If the model isn't downloaded and there is no network,
+        # huggingface_hub raises LocalEntryNotFoundError / FileMetadataError;
+        # we want the UI to still boot so the user can pick another model
+        # (or download the missing one from Settings → Whisper Model).
         print(f"load whisper model {self.model_name}...")
-        mlx_whisper.transcribe(
-            np.zeros(1024), path_or_hf_repo=self.model_name)
+        self._whisper_ready = False
+        try:
+            mlx_whisper.transcribe(
+                np.zeros(1024), path_or_hf_repo=self.model_name)
+            self._whisper_ready = True
+        except Exception as exc:
+            print(
+                f"[warning] whisper warm-up failed for {self.model_name}: {exc}\n"
+                "[warning] Real-time transcription will fail until a downloaded "
+                "model is selected (Settings → Whisper Model → Download).",
+                flush=True,
+            )
         # 初始化翻译
         if cfg.OnlineTranslation:
             # 联网翻译

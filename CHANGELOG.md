@@ -26,6 +26,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.1] – 2026-05-19
+
+### Fixed
+- **App no longer crashes at launch when the saved Whisper model isn't
+  downloaded.** Reported failure: `./start.sh` aborted with
+  `huggingface_hub.errors.FileMetadataError /
+  LocalEntryNotFoundError` because the upstream backend's warm-up call
+  `mlx_whisper.transcribe(np.zeros(1024), …)` tried to silently
+  download the configured model (e.g. `whisper-large-v3-turbo`) via
+  the HF mirror, which can fail on flaky networks.
+  应用启动崩溃已修复。报错路径：`./start.sh` 因上游后端的
+  `mlx_whisper.transcribe(np.zeros(1024), …)` 预热调用试图通过
+  huggingface_hub 静默下载用户配置中的模型（例如
+  `whisper-large-v3-turbo`），网络一卡就抛
+  `FileMetadataError / LocalEntryNotFoundError` 导致整个应用退出。
+
+### Changed
+- **Startup never auto-downloads a model anymore.** If the saved
+  `ModelName` isn't in the HuggingFace cache, ParrotSub now picks an
+  already-installed model from `AllModelName` (preferring
+  `whisper-tiny.en-mlx`) and uses it **for this session only** so the
+  warm-up loads instantly from disk. The saved config is left
+  untouched, so the Settings page still shows the user's actual
+  preference with the `⬇` badge and they can download it at their own
+  pace. The header status pill shows
+  `Using {fallback} (download {selected} from Settings → Whisper Model)`.
+  启动不再触发任何自动下载。若 `ModelName` 配置的模型不在 HuggingFace
+  缓存里，ParrotSub 会从 `AllModelName` 里找一个已下载的模型（优先
+  `whisper-tiny.en-mlx`）作为本次会话的临时替代，配置文件原样保留——
+  Settings 页面仍然显示用户选的模型并标 `⬇`，可以从那里主动点
+  Download。顶栏状态胶囊会提示
+  `正在使用 {fallback}（去 Settings → Whisper Model 下载 {selected}）`。
+- **Defense in depth in the vendored backend.** Both the warm-up call
+  in `RealtimeSubtitle.__init__` and every per-segment
+  `mlx_whisper.transcribe` call in the handler loop are now wrapped in
+  `try/except`. A whisper failure prints a clear warning once,
+  surfaces a status message, and never tears the app or worker thread
+  down.
+  内嵌后端加双保险：`RealtimeSubtitle.__init__` 的预热调用与 handle
+  循环里的每次 `mlx_whisper.transcribe` 都包了 try/except，模型异常
+  只打一次清晰的 warning，绝不再把应用或后台线程拖垮。
+
+### Added
+- `parrotsub.models.find_installed_model(cfg)` – returns the first
+  whisper model that's already in the local HF cache, falling back to
+  `whisper-tiny.en-mlx` as a last resort. Used by `app.launch()` for
+  the no-download fallback above.
+  新增 `parrotsub.models.find_installed_model(cfg)`：返回 HF 缓存中已
+  存在的第一个 whisper 模型，最后兜底到 `whisper-tiny.en-mlx`。`app.
+  launch()` 用它实现上面那个"不下载"的 fallback。
+- New i18n keys `status.model_fallback` and `status.no_model` (EN +
+  ZH) for the header status pill messages above.
+  新增 EN + ZH 词条 `status.model_fallback` / `status.no_model`，对应
+  上面的状态胶囊文案。
+
+---
+
 ## [0.6.0] – 2026-05-19
 
 ### Added
@@ -336,7 +393,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/21White/ParrotSub/releases/tag/v0.6.1
 [0.6.0]: https://github.com/21White/ParrotSub/releases/tag/v0.6.0
 [0.5.1]: https://github.com/21White/ParrotSub/releases/tag/v0.5.1
 [0.5.0]: https://github.com/21White/ParrotSub/releases/tag/v0.5.0

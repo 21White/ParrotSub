@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import webbrowser
-from typing import Optional
+from typing import Optional, Tuple
 
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWidgets import (
@@ -22,7 +22,12 @@ from realtime_subtitle.subtitle import RealtimeSubtitle
 from parrotsub import __version__, ui_config
 from parrotsub.i18n import LOCALE_LABELS, detect_default_locale, t, translator
 from parrotsub.languages import migrate_legacy_code
-from parrotsub.models import active_hf_endpoint, ensure_default_hf_endpoint
+from parrotsub.models import (
+    active_hf_endpoint,
+    ensure_default_hf_endpoint,
+    find_installed_model,
+    is_model_installed,
+)
 from parrotsub.pages.exports import ExportsPage
 from parrotsub.pages.home import HomePage
 from parrotsub.pages.settings import SettingsPage
@@ -210,8 +215,49 @@ def launch() -> int:
         except Exception as exc:
             print(f"[parrotsub] could not persist migrated config: {exc}", flush=True)
 
+    # Pre-flight: if the configured Whisper model isn't downloaded yet
+    # we MUST NOT let the backend's __init__ silently fall through to
+    # huggingface_hub (which is what made v0.6.0 crash on launch for
+    # users whose saved ModelName pointed at a model they hadn't pulled
+    # yet). Instead, swap in any already-installed model just for this
+    # process so the warm-up loads instantly from cache. The saved
+    # config is left untouched so the Settings page still shows the
+    # user's actual preference (with the ⬇ badge).
+    selected_model = cfg.ModelName
+    fallback_status: Optional[Tuple[str, str]] = None
+    if not is_model_installed(selected_model):
+        fallback = find_installed_model(cfg)
+        if fallback and fallback != selected_model:
+            print(
+                f"[parrotsub] {selected_model!r} not downloaded yet; using "
+                f"{fallback!r} for this session (your saved preference is "
+                "preserved).",
+                flush=True,
+            )
+            # Class attribute override – RealtimeSubtitle reads
+            # ``self.model_name`` which defaults to this class attr.
+            RealtimeSubtitle.model_name = fallback
+            fallback_status = (
+                "warn",
+                t(
+                    "status.model_fallback",
+                    fallback=fallback.split("/")[-1],
+                    selected=selected_model.split("/")[-1],
+                ),
+            )
+        else:
+            print(
+                "[parrotsub] WARNING: no whisper model is downloaded yet. "
+                "The UI will boot but transcription will fail until you open "
+                "Settings → Whisper Model and click Download.",
+                flush=True,
+            )
+            fallback_status = ("warn", t("status.no_model"))
+
     # The backend constructor downloads / loads heavy models; do it before the
-    # event loop starts so the UI doesn't appear unresponsive.
+    # event loop starts so the UI doesn't appear unresponsive. Wrapped so a
+    # network hiccup or missing model can never take the whole app down –
+    # the patched subtitle.py also tolerates a failed warm-up internally.
     print("[parrotsub] Loading whisper / translation / speaker models...", flush=True)
     rs = RealtimeSubtitle()
     print("[parrotsub] Models ready, starting UI.", flush=True)
@@ -223,4 +269,6 @@ def launch() -> int:
 
     window = MainWindow(rs=rs, cfg=cfg)
     window.show()
+    if fallback_status is not None:
+        window.header.status.set_state(*fallback_status)
     return app.exec()

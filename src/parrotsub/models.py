@@ -72,6 +72,40 @@ def is_model_installed(repo_id: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Fallback picker — for the boot-time "the saved model isn't downloaded
+# yet" case so we never trigger a silent network download.
+# ---------------------------------------------------------------------------
+def find_installed_model(cfg) -> Optional[str]:
+    """Return the first model in ``cfg.AllModelName`` that's already on disk.
+
+    Search order:
+
+    1. ``cfg.ModelName`` itself (sanity check – callers typically only
+       hit this function after already deciding it isn't installed, but
+       the check costs nothing).
+    2. Every entry in ``cfg.AllModelName`` in order.
+    3. ``mlx-community/whisper-tiny.en-mlx`` as a last resort because
+       it's the upstream realtime-subtitle default and the model the
+       backend's first launch tends to fetch.
+
+    Returns ``None`` when no whisper model is downloaded at all.
+    """
+    candidates = [
+        getattr(cfg, "ModelName", ""),
+        *list(getattr(cfg, "AllModelName", []) or []),
+        "mlx-community/whisper-tiny.en-mlx",
+    ]
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        if is_model_installed(candidate):
+            return candidate
+    return None
+
+
+# ---------------------------------------------------------------------------
 # HuggingFace endpoint helper
 # ---------------------------------------------------------------------------
 def ensure_default_hf_endpoint() -> str:
