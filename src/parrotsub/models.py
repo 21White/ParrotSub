@@ -27,6 +27,16 @@ from PyQt6.QtCore import QObject, QThread, pyqtSignal
 # they both read ``HF_ENDPOINT`` at call time.
 DEFAULT_HF_ENDPOINT = "https://hf-mirror.com"
 
+# Endpoints the model downloader tries, in order, before giving up. The
+# user's currently-active ``HF_ENDPOINT`` (which may be either of these,
+# or their own custom value) is always tried first; entries listed here
+# that match are skipped on subsequent attempts so we never retry the
+# same URL twice.
+FALLBACK_DOWNLOAD_ENDPOINTS: tuple[str, ...] = (
+    "https://hf-mirror.com",
+    "https://huggingface.co",
+)
+
 
 # ---------------------------------------------------------------------------
 # Approximate on-disk sizes (HuggingFace cache totals, rounded). Used in the
@@ -128,31 +138,72 @@ def active_hf_endpoint() -> str:
 class ModelDownloadWorker(QThread):
     """QThread that downloads a single whisper model in the background.
 
-    Emits ``downloaded`` with ``(success: bool, message: str)`` so the
-    caller can update the status pill and the dropdown badges.
+    The worker tries every endpoint in :data:`FALLBACK_DOWNLOAD_ENDPOINTS`
+    (with the user's current ``HF_ENDPOINT`` first) until one succeeds.
+    Emits:
+
+    - ``attempting(repo_id, endpoint)`` before each attempt, so the UI
+      can tell the user which mirror is being tried right now;
+    - ``downloaded(repo_id, success, message)`` once the worker
+      decides – either after the first successful attempt or after all
+      endpoints have failed.
     """
 
-    downloaded = pyqtSignal(str, bool, str)  # repo_id, success, message_or_error
+    attempting = pyqtSignal(str, str)               # repo_id, endpoint_url
+    downloaded = pyqtSignal(str, bool, str)         # repo_id, success, msg
 
     def __init__(self, repo_id: str, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
         self.repo_id = repo_id
 
     def run(self) -> None:  # noqa: D401 – Qt signature
-        # Make sure the mirror is in effect for this thread too. Env vars
-        # are process-global so this is just defensive.
         ensure_default_hf_endpoint()
-
         try:
             from huggingface_hub import snapshot_download
         except Exception as exc:
             self.downloaded.emit(self.repo_id, False, f"huggingface_hub missing: {exc}")
             return
 
-        try:
-            snapshot_download(repo_id=self.repo_id, repo_type="model")
-        except Exception as exc:  # network errors, gated repos, etc.
-            self.downloaded.emit(self.repo_id, False, str(exc))
+        endpoints = self._build_endpoint_chain()
+        last_error: Optional[str] = None
+        for endpoint in endpoints:
+            os.environ["HF_ENDPOINT"] = endpoint
+            self.attempting.emit(self.repo_id, endpoint)
+            try:
+                snapshot_download(repo_id=self.repo_id, repo_type="model")
+            except Exception as exc:
+                last_error = f"{endpoint}: {exc}"
+                # Try the next endpoint – but only if we actually have
+                # more to try; otherwise we'll fall through to the
+                # post-loop failure emit below.
+                continue
+            # Success! Stop trying further endpoints.
+            self.downloaded.emit(self.repo_id, True, self.repo_id)
             return
 
-        self.downloaded.emit(self.repo_id, True, self.repo_id)
+        self.downloaded.emit(
+            self.repo_id,
+            False,
+            last_error or "no download endpoints configured",
+        )
+
+    @staticmethod
+    def _build_endpoint_chain() -> list[str]:
+        """Return the ordered, deduplicated list of endpoints to try.
+
+        The currently-active ``HF_ENDPOINT`` is always first so the user's
+        explicit preference (or our China-mirror default) gets the first
+        crack. Everything in ``FALLBACK_DOWNLOAD_ENDPOINTS`` is appended
+        afterwards, with the active endpoint deduplicated out.
+        """
+        active = os.environ.get("HF_ENDPOINT") or DEFAULT_HF_ENDPOINT
+        ordered = [active, *FALLBACK_DOWNLOAD_ENDPOINTS]
+        seen: set[str] = set()
+        chain: list[str] = []
+        for url in ordered:
+            normalised = (url or "").rstrip("/")
+            if not normalised or normalised in seen:
+                continue
+            seen.add(normalised)
+            chain.append(normalised)
+        return chain

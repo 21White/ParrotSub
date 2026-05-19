@@ -433,6 +433,7 @@ class SettingsPage(QWidget):
             return
 
         worker = ModelDownloadWorker(repo, parent=self)
+        worker.attempting.connect(self._on_model_download_attempting)
         worker.downloaded.connect(self._on_model_downloaded)
         # When the thread itself finishes, drop our reference so the GC
         # can clean up; also re-evaluate the button state.
@@ -441,6 +442,15 @@ class SettingsPage(QWidget):
         worker.start()
         self.status_changed.emit("warn", t("settings.model.downloading_status", model=repo))
         self._update_download_btn_state()
+
+    def _on_model_download_attempting(self, repo_id: str, endpoint: str) -> None:
+        """Show which mirror is currently being tried in the status pill."""
+        from urllib.parse import urlparse
+        host = urlparse(endpoint).netloc or endpoint
+        self.status_changed.emit(
+            "warn",
+            t("settings.model.downloading_via", model=repo_id, endpoint=host),
+        )
 
     def _on_model_downloaded(self, repo_id: str, success: bool, message: str) -> None:
         if success:

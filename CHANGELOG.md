@@ -26,6 +26,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.3] – 2026-05-19
+
+### Changed
+- **Model download tries multiple HuggingFace endpoints in turn**, so
+  a flaky mirror doesn't have to mean "download failed". The order is:
+  1. whatever `HF_ENDPOINT` currently resolves to (the user's
+     explicit choice, or our `https://hf-mirror.com` default);
+  2. `https://hf-mirror.com` (skipped if it was first);
+  3. `https://huggingface.co` (the official one, always last).
+  The header status pill now shows `Downloading {model} via
+  {endpoint}…` / `正在从 {endpoint} 下载 {model}…` so you can see
+  which mirror is being attempted at any moment.
+  模型下载现在会**按顺序尝试多个 HuggingFace 镜像**，单一镜像抽风
+  不再等于"下载失败"。顺序：(1) 当前 `HF_ENDPOINT`（你的显式设置
+  或我们的默认 `https://hf-mirror.com`）→ (2) `hf-mirror.com`（若
+  与第 1 个重复则跳过）→ (3) 官方 `https://huggingface.co` 兜底。
+  顶栏状态胶囊会实时显示 `正在从 {endpoint} 下载 {model}…`，让你
+  随时知道当下走的是哪个源。
+
+### Added
+- `parrotsub.models.FALLBACK_DOWNLOAD_ENDPOINTS` – the ordered tuple
+  of fallback endpoints used by the downloader.
+  `ModelDownloadWorker` also gains an `attempting(repo_id, endpoint)`
+  signal so the Settings page can keep the UI in sync.
+  新增 `parrotsub.models.FALLBACK_DOWNLOAD_ENDPOINTS` 常量；
+  `ModelDownloadWorker` 新增 `attempting` 信号，让 Settings 页能
+  实时反馈当前正在试哪个镜像。
+- New i18n key `settings.model.downloading_via` (EN + ZH).
+  新增 EN + ZH 词条 `settings.model.downloading_via`。
+
+---
+
 ## [0.6.2] – 2026-05-19
 
 ### Changed
@@ -411,7 +443,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/21White/ParrotSub/releases/tag/v0.6.3
 [0.6.2]: https://github.com/21White/ParrotSub/releases/tag/v0.6.2
 [0.6.1]: https://github.com/21White/ParrotSub/releases/tag/v0.6.1
 [0.6.0]: https://github.com/21White/ParrotSub/releases/tag/v0.6.0
