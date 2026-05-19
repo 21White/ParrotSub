@@ -33,6 +33,7 @@ from parrotsub.languages import (
 from parrotsub.models import (
     ModelDownloadWorker,
     active_hf_endpoint,
+    cleanup_incomplete_downloads,
     is_model_installed,
     model_size_label,
 )
@@ -431,6 +432,11 @@ class SettingsPage(QWidget):
             self.status_changed.emit("active", t("settings.model.already_installed", model=repo))
             self._update_download_btn_state()
             return
+
+        # Wipe any half-finished blobs from previous attempts so the
+        # next download starts clean. (Without this, a stalled prior
+        # transfer can confuse resume logic.)
+        cleanup_incomplete_downloads(repo)
 
         worker = ModelDownloadWorker(repo, parent=self)
         worker.attempting.connect(self._on_model_download_attempting)

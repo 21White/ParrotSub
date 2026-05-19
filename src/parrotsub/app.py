@@ -24,6 +24,7 @@ from parrotsub.i18n import LOCALE_LABELS, detect_default_locale, t, translator
 from parrotsub.languages import migrate_legacy_code
 from parrotsub.models import (
     active_hf_endpoint,
+    ensure_default_download_timeout,
     ensure_default_hf_endpoint,
     find_installed_model,
     is_model_installed,
@@ -187,9 +188,16 @@ class MainWindow(QMainWindow):
 def launch() -> int:
     """Boot a QApplication, build the backend & main window, and run the loop."""
     # Make sure model downloads default to the China mirror unless the
-    # user has already exported HF_ENDPOINT (overrides win).
+    # user has already exported HF_ENDPOINT (overrides win). Also force
+    # a per-request transfer timeout so stalled mirrors fail fast and
+    # the endpoint-chain fallback kicks in.
     endpoint = ensure_default_hf_endpoint()
-    print(f"[parrotsub] HF_ENDPOINT = {endpoint}", flush=True)
+    timeout = ensure_default_download_timeout()
+    print(
+        f"[parrotsub] HF_ENDPOINT = {endpoint} "
+        f"(HF_HUB_DOWNLOAD_TIMEOUT = {timeout}s)",
+        flush=True,
+    )
 
     cfg = app_config.get()
 

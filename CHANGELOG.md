@@ -26,6 +26,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.4] – 2026-05-19
+
+### Fixed
+- **Model downloads no longer hang forever on big files.** Root cause:
+  `huggingface_hub.snapshot_download` has **no** per-transfer timeout
+  by default, so when the China mirror started streaming a multi-GB
+  weights file and then stalled part-way, the worker thread waited
+  silently forever, the `attempting` signal never fired again, the
+  endpoint-chain fallback never kicked in, and the user just saw a
+  parked `Fetching 4 files: 0%` progress bar. ParrotSub now sets
+  `HF_HUB_DOWNLOAD_TIMEOUT=60` at launch (idempotent – the user's
+  explicit override always wins). Combined with `etag_timeout=15` on
+  the metadata HEAD call, a stalled mirror now fails fast and the
+  fallback to `https://huggingface.co` actually triggers.
+  模型下载不再因大文件假死。根因：`huggingface_hub.snapshot_download`
+  默认**没有**单次传输超时，hf-mirror 在传几 GB 权重文件时常常卡到
+  几十兆就停，worker 线程会无声无息等到天荒地老，endpoint 链回退
+  根本触发不了，用户看到的就是 `Fetching 4 files: 0%` 永远不动。
+  ParrotSub 现在在启动时设置 `HF_HUB_DOWNLOAD_TIMEOUT=60`（用户显式
+  覆盖优先），配合 `etag_timeout=15`，卡住的镜像会快速失败，正确
+  fallback 到 `https://huggingface.co`。
+- **`is_model_installed()` is now actually strict.** Previously it
+  returned `True` as soon as `config.json` was in the cache, which
+  was misleading after an interrupted download (metadata fetched +
+  weights missing or half-fetched both look "installed"). The check
+  now requires:
+  1. `config.json` is present,
+  2. the snapshot directory has at least one weights file
+     (`*.safetensors` / `*.npz` / `*.bin` / `*.gguf`),
+  3. there are no `.incomplete` blobs in the `blobs/` directory.
+  Otherwise the `⬇` badge stays on the model in the dropdown.
+  `is_model_installed()` 现在做的是**真严格**的判断：之前只看
+  `config.json` 在不在，半下载（拿到了元数据但权重没下完）也会被
+  误判成已安装。现在必须同时满足 3 个条件：(1) `config.json` 在；
+  (2) snapshot 目录里至少有一个权重文件（`*.safetensors` /
+  `*.npz` / `*.bin` / `*.gguf`）；(3) `blobs/` 目录里没有
+  `.incomplete` 残留。否则下拉框继续显示 `⬇`。
+
+### Added
+- `parrotsub.models.has_incomplete_download(repo_id)` and
+  `cleanup_incomplete_downloads(repo_id)` helpers. The downloader
+  invokes the cleanup on every failed attempt so the next endpoint
+  starts from a clean slate; the Settings page invokes it before the
+  first attempt too.
+  新增 `has_incomplete_download(repo_id)` / `cleanup_incomplete_
+  downloads(repo_id)` 工具函数。下载 worker 每次失败都会清理一次，
+  让下一个 endpoint 从干净状态开始；Settings 页面在点 Download 前
+  也会先清一次。
+- `parrotsub.models.ensure_default_download_timeout()` (sets
+  `HF_HUB_DOWNLOAD_TIMEOUT=60` if unset). Called by `app.launch()`.
+  新增 `ensure_default_download_timeout()` 帮助函数，启动时调一次。
+- The downloader now prints each attempt + each failure to `stderr`,
+  prefixed with `[parrotsub.download]`, so terminal output makes it
+  obvious which mirror was tried and why it failed.
+  下载 worker 现在把每次尝试 / 每次失败都打到 stderr（前缀
+  `[parrotsub.download]`），终端上一眼就能看出走了哪个镜像、为什么
+  失败。
+
+---
+
 ## [0.6.3] – 2026-05-19
 
 ### Changed
@@ -443,7 +503,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/21White/ParrotSub/releases/tag/v0.6.4
 [0.6.3]: https://github.com/21White/ParrotSub/releases/tag/v0.6.3
 [0.6.2]: https://github.com/21White/ParrotSub/releases/tag/v0.6.2
 [0.6.1]: https://github.com/21White/ParrotSub/releases/tag/v0.6.1
