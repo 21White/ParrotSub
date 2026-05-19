@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
@@ -225,6 +226,80 @@ def active_hf_endpoint() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Progress-emitting tqdm subclass factory
+# ---------------------------------------------------------------------------
+def _make_progress_tqdm(worker: "ModelDownloadWorker"):
+    """Return a ``tqdm`` subclass that forwards aggregated byte progress
+    to ``worker.progress`` (so the UI can show a live percentage bar).
+
+    huggingface_hub creates one tqdm bar per file plus an outer
+    "Fetching N files" bar. We only care about the per-file *byte*
+    bars (``unit='B'``, with a known ``total``); the outer "files" bar
+    is counted in items and would just bounce 0/4 → 4/4 with no useful
+    granularity. Multiple per-file bars may be live concurrently when
+    ``snapshot_download`` runs its thread pool, so we sum them.
+
+    Emits are throttled to ~2 per second to avoid hammering the GUI
+    thread's event loop.
+    """
+    from tqdm.auto import tqdm
+
+    class _Emitter(tqdm):
+        _files: Dict[int, list] = {}
+        _last_emit_t: float = 0.0
+        _emit_interval: float = 0.5  # seconds
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._track = False
+            try:
+                if str(getattr(self, "unit", "")).upper() == "B" and self.total:
+                    self._track = True
+            except Exception:
+                pass
+            if self._track:
+                _Emitter._files[id(self)] = [int(self.n), int(self.total)]
+                _Emitter._maybe_emit(force=False)
+
+        def update(self, n=1):
+            ret = super().update(n)
+            if self._track:
+                entry = _Emitter._files.get(id(self))
+                if entry is not None:
+                    entry[0] = int(self.n)
+                _Emitter._maybe_emit(force=False)
+            return ret
+
+        def close(self):
+            if self._track:
+                entry = _Emitter._files.get(id(self))
+                if entry is not None:
+                    entry[0] = int(self.n)
+                _Emitter._maybe_emit(force=True)
+            super().close()
+
+        @classmethod
+        def _maybe_emit(cls, force: bool = False) -> None:
+            now = time.monotonic()
+            if not force and (now - cls._last_emit_t) < cls._emit_interval:
+                return
+            cls._last_emit_t = now
+            done = sum(d for d, _ in cls._files.values())
+            total = sum(t for _, t in cls._files.values())
+            try:
+                worker.progress.emit(worker.repo_id, int(done), int(total))
+            except RuntimeError:
+                pass  # worker may have been deleted before close()
+
+        @classmethod
+        def reset(cls) -> None:
+            cls._files = {}
+            cls._last_emit_t = 0.0
+
+    return _Emitter
+
+
+# ---------------------------------------------------------------------------
 # Background download worker
 # ---------------------------------------------------------------------------
 class ModelDownloadWorker(QThread):
@@ -242,6 +317,7 @@ class ModelDownloadWorker(QThread):
     """
 
     attempting = pyqtSignal(str, str)               # repo_id, endpoint_url
+    progress = pyqtSignal(str, int, int)            # repo_id, done_bytes, total_bytes
     downloaded = pyqtSignal(str, bool, str)         # repo_id, success, msg
 
     def __init__(self, repo_id: str, parent: Optional[QObject] = None) -> None:
@@ -266,6 +342,9 @@ class ModelDownloadWorker(QThread):
             flush=True,
         )
 
+        # Build a tqdm subclass bound to *this* worker's progress signal.
+        EmitterClass = _make_progress_tqdm(self)
+
         last_error: Optional[str] = None
         for endpoint in endpoints:
             os.environ["HF_ENDPOINT"] = endpoint
@@ -275,12 +354,14 @@ class ModelDownloadWorker(QThread):
                 file=sys.stderr,
                 flush=True,
             )
+            EmitterClass.reset()  # clear stale per-file totals between attempts
             try:
                 snapshot_download(
                     repo_id=self.repo_id,
                     repo_type="model",
                     # Fail fast on hung metadata calls so the chain moves on.
                     etag_timeout=15,
+                    tqdm_class=EmitterClass,
                 )
             except Exception as exc:
                 msg = f"{endpoint}: {type(exc).__name__}: {exc}"

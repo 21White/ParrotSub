@@ -26,6 +26,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.5] – 2026-05-19
+
+### Added
+- **Live download progress in the header status pill.** Before this
+  release, clicking *Download* on a model showed
+  `Downloading {model} via {endpoint}…` and then sat there silently
+  for minutes while a big file streamed through a slow mirror. Users
+  reasonably concluded the download was hung and gave up — but the
+  download was actually working, just slow (hf-mirror.com routinely
+  takes 2–10 minutes for ≥500 MB files). The pill now updates
+  ~2 times per second with `Downloading {model}: 37% (614/1638 MB)` /
+  `正在下载 {model}：37%（614/1638 MB）` so you can see it's
+  progressing.
+  顶栏状态胶囊新增实时下载进度。之前点 *Download* 之后会一直显示
+  `正在从 {endpoint} 下载 {model}…` 几分钟不动，用户合理地以为卡死
+  就放弃了——其实下载在跑，只是 hf-mirror.com 大文件慢（500 MB+
+  常常要 2–10 分钟）。现在胶囊每秒 ~2 次刷新成
+  `正在下载 {model}：37%（614/1638 MB）`，肉眼看得见在动。
+
+### Changed
+- `ModelDownloadWorker` exposes a new `progress(repo_id, done_bytes,
+  total_bytes)` signal in addition to the existing
+  `attempting` / `downloaded` signals. Aggregates byte counts across
+  all live per-file `tqdm` bars while `snapshot_download`'s thread
+  pool runs.
+  `ModelDownloadWorker` 在原有 `attempting` / `downloaded` 之外新增
+  `progress(repo_id, done_bytes, total_bytes)` 信号，把
+  `snapshot_download` 线程池里同时跑的多个 per-file tqdm 字节数
+  累加后发出来。
+- New private factory `parrotsub.models._make_progress_tqdm(worker)`
+  returns a `tqdm` subclass bound to that worker's `progress`
+  signal. It only tracks `unit='B'` bars (per-file byte progress) so
+  the noisy "Fetching N files" outer bar doesn't pollute totals, and
+  throttles emits to ~one every 500 ms so the UI thread isn't
+  swamped.
+  新增内部工厂 `parrotsub.models._make_progress_tqdm(worker)`，返回
+  绑到该 worker `progress` 信号的 `tqdm` 子类。它只跟踪 `unit='B'`
+  的字节进度条（避免被外层"Fetching N files"误算），并把发射节流
+  到 ~500 ms 一次以防止挤爆 UI 事件循环。
+
+### Fixed
+- The Settings page now connects the new `progress` signal in
+  `_on_download_model_clicked` and renders it via a new
+  `_on_model_download_progress` slot, replacing the static
+  *Downloading via…* message with the live percentage line.
+  Settings 页面在 `_on_download_model_clicked` 里连接新信号，slot
+  `_on_model_download_progress` 实时刷新百分比，取代之前那条不动
+  的 *Downloading via…* 文案。
+
+---
+
 ## [0.6.4] – 2026-05-19
 
 ### Fixed
@@ -503,7 +554,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/21White/ParrotSub/releases/tag/v0.6.5
 [0.6.4]: https://github.com/21White/ParrotSub/releases/tag/v0.6.4
 [0.6.3]: https://github.com/21White/ParrotSub/releases/tag/v0.6.3
 [0.6.2]: https://github.com/21White/ParrotSub/releases/tag/v0.6.2

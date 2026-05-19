@@ -440,6 +440,7 @@ class SettingsPage(QWidget):
 
         worker = ModelDownloadWorker(repo, parent=self)
         worker.attempting.connect(self._on_model_download_attempting)
+        worker.progress.connect(self._on_model_download_progress)
         worker.downloaded.connect(self._on_model_downloaded)
         # When the thread itself finishes, drop our reference so the GC
         # can clean up; also re-evaluate the button state.
@@ -456,6 +457,24 @@ class SettingsPage(QWidget):
         self.status_changed.emit(
             "warn",
             t("settings.model.downloading_via", model=repo_id, endpoint=host),
+        )
+
+    def _on_model_download_progress(self, repo_id: str, done: int, total: int) -> None:
+        """Live percentage in the header status pill, throttled by the worker."""
+        if total <= 0:
+            return
+        pct = max(0, min(100, int(done * 100 / total)))
+        done_mb = done / (1024 * 1024)
+        total_mb = total / (1024 * 1024)
+        self.status_changed.emit(
+            "warn",
+            t(
+                "settings.model.download_progress",
+                model=repo_id.split("/")[-1],
+                pct=pct,
+                done=done_mb,
+                total=total_mb,
+            ),
         )
 
     def _on_model_downloaded(self, repo_id: str, success: bool, message: str) -> None:
