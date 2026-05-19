@@ -80,6 +80,19 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "settings.group.audio.desc": "Choose the microphone realtime-subtitle will sample.",
         "settings.group.model.title": "Whisper model",
         "settings.group.model.desc": "Pick the speech-recognition model and tuning thresholds.",
+        "settings.model.download": " Download",
+        "settings.model.downloading": " Downloading…",
+        "settings.model.installed": " Installed",
+        "settings.model.download.tooltip": (
+            "Download the currently selected Whisper model from HuggingFace. "
+            "Uses the HF_ENDPOINT env var, defaulting to the China mirror "
+            "(hf-mirror.com)."
+        ),
+        "settings.model.endpoint": "Mirror: {endpoint}",
+        "settings.model.downloading_status": "Downloading {model}…",
+        "settings.model.download_ok": "Model downloaded: {model}",
+        "settings.model.download_failed": "Model download failed: {error}",
+        "settings.model.already_installed": "Already installed: {model}",
         "settings.group.translation.title": "Translation",
         "settings.group.translation.desc": (
             "Translate the live transcript fully offline with "
@@ -194,6 +207,18 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "settings.group.audio.desc": "选择实时识别使用的麦克风。",
         "settings.group.model.title": "Whisper 模型",
         "settings.group.model.desc": "选择语音识别模型，以及解码相关的阈值。",
+        "settings.model.download": "  下载",
+        "settings.model.downloading": "  下载中…",
+        "settings.model.installed": "  已安装",
+        "settings.model.download.tooltip": (
+            "从 HuggingFace 下载当前选中的 Whisper 模型。默认走环境变量 "
+            "HF_ENDPOINT，未设置时默认使用国内镜像 hf-mirror.com。"
+        ),
+        "settings.model.endpoint": "镜像：{endpoint}",
+        "settings.model.downloading_status": "正在下载 {model}…",
+        "settings.model.download_ok": "模型下载完成：{model}",
+        "settings.model.download_failed": "模型下载失败：{error}",
+        "settings.model.already_installed": "已安装：{model}",
         "settings.group.translation.title": "翻译",
         "settings.group.translation.desc": (
             "使用 argos-translate 完全离线地翻译实时字幕。从下拉框中"

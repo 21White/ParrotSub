@@ -22,6 +22,7 @@ from realtime_subtitle.subtitle import RealtimeSubtitle
 from parrotsub import __version__, ui_config
 from parrotsub.i18n import LOCALE_LABELS, detect_default_locale, t, translator
 from parrotsub.languages import migrate_legacy_code
+from parrotsub.models import active_hf_endpoint, ensure_default_hf_endpoint
 from parrotsub.pages.exports import ExportsPage
 from parrotsub.pages.home import HomePage
 from parrotsub.pages.settings import SettingsPage
@@ -105,8 +106,9 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(right_col, stretch=1)
         self.setCentralWidget(root)
 
-        # Plumb home page status changes into the header pill.
+        # Plumb status changes from Home + Settings into the header pill.
         self.home_page.status_changed.connect(self.header.status.set_state)
+        self.settings_page.status_changed.connect(self.header.status.set_state)
 
         # React to locale changes for header status text.
         translator().locale_changed.connect(self._on_locale_changed_header)
@@ -179,6 +181,11 @@ class MainWindow(QMainWindow):
 
 def launch() -> int:
     """Boot a QApplication, build the backend & main window, and run the loop."""
+    # Make sure model downloads default to the China mirror unless the
+    # user has already exported HF_ENDPOINT (overrides win).
+    endpoint = ensure_default_hf_endpoint()
+    print(f"[parrotsub] HF_ENDPOINT = {endpoint}", flush=True)
+
     cfg = app_config.get()
 
     # Auto-migrate legacy / invalid language codes that may have been typed

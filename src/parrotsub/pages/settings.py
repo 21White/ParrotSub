@@ -30,6 +30,12 @@ from parrotsub.languages import (
     source_language_options,
     target_language_options,
 )
+from parrotsub.models import (
+    ModelDownloadWorker,
+    active_hf_endpoint,
+    is_model_installed,
+    model_size_label,
+)
 from parrotsub.theme import Palette
 from parrotsub.widgets.card import Card
 from parrotsub.widgets.switch import Switch
@@ -107,9 +113,14 @@ _HIDDEN_FIELDS = {
 
 
 class SettingsPage(QWidget):
-    """Configuration page – emits ``saved`` so other pages can refresh."""
+    """Configuration page – emits ``saved`` so other pages can refresh.
+
+    Also emits ``status_changed(state, text)`` so the host MainWindow can
+    surface model-download progress / completion in the header pill.
+    """
 
     saved = pyqtSignal()
+    status_changed = pyqtSignal(str, str)  # state, text – mirrors HomePage
 
     def __init__(
         self,
@@ -127,6 +138,10 @@ class SettingsPage(QWidget):
         self._field_widgets: Dict[str, QWidget] = {}
         self._field_labels: Dict[str, QLabel] = {}
         self._group_cards: List[Tuple[Card, str, str]] = []  # (card, title_key, desc_key)
+        # Model download state
+        self._model_download_btn: Optional[QPushButton] = None
+        self._model_endpoint_label: Optional[QLabel] = None
+        self._model_download_thread: Optional[ModelDownloadWorker] = None
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 20, 20, 20)
@@ -183,6 +198,10 @@ class SettingsPage(QWidget):
     def apply_palette(self, p: Palette) -> None:
         self._save_btn.setIcon(make_icon("save", color=p.primary_foreground, size=16))
         self._reset_btn.setIcon(make_icon("refresh-cw", color=p.foreground, size=16))
+        if self._model_download_btn is not None:
+            self._model_download_btn.setIcon(
+                make_icon("cloud-download", color=p.foreground, size=16)
+            )
 
     # ------------------------------------------------------------------
     def _build_group_card(self, title_key: str, desc_key: str, field_names: List[str]) -> Card:
@@ -207,10 +226,20 @@ class SettingsPage(QWidget):
             label = QLabel(self._field_label_text(name))
             label.setObjectName("FieldLabel")
             self._field_labels[name] = label
-            form.addRow(label, widget)
+            form.addRow(label, self._wrap_field_widget(name, widget))
 
         card.body_layout.addLayout(form)
         return card
+
+    def _wrap_field_widget(self, name: str, widget: QWidget) -> QWidget:
+        """Optionally wrap ``widget`` in a horizontal container.
+
+        Used by the ModelName row so the combo box gets an inline
+        Download button (and a small endpoint hint label below).
+        """
+        if name == "ModelName" and isinstance(widget, QComboBox):
+            return self._build_model_row(widget)
+        return widget
 
     def _build_field_widget(self, name: str, type_: type) -> QWidget:
         defaults = self._cfg.__dict__
@@ -218,12 +247,12 @@ class SettingsPage(QWidget):
 
         if name == "ModelName":
             combo = QComboBox()
-            options = list(dict.fromkeys([self._cfg.ModelName, *self._cfg.AllModelName]))
-            combo.addItems(options)
-            combo.setCurrentText(self._cfg.ModelName)
-            # When the user picks a different whisper model, refresh the
-            # TranslateFrom dropdown (English-only models lock it to "en").
-            combo.currentTextChanged.connect(self._on_model_changed)
+            combo.setObjectName("ModelCombo")
+            self._populate_model_combo(combo, self._cfg.ModelName)
+            # Cascade: when the user picks a different whisper model,
+            # refresh the TranslateFrom dropdown (English-only models
+            # lock it to "en") AND refresh the Download button state.
+            combo.currentIndexChanged.connect(self._on_model_combo_index_changed)
             return combo
 
         if name == "InputDevice":
@@ -304,6 +333,130 @@ class SettingsPage(QWidget):
         self._populate_language_combo(combo, new_options, current_code)
 
     # ------------------------------------------------------------------
+    # Model picker helpers
+    # ------------------------------------------------------------------
+    def _populate_model_combo(self, combo: "QComboBox", current_repo: str) -> None:
+        """Fill the model combo with status-prefixed labels.
+
+        Each item shows ``"✓ name (size)"`` if the model is already in the
+        HuggingFace cache, or ``"⬇ name (size)"`` if it still needs to be
+        downloaded. The raw ``repo_id`` is stored in ``userData`` so
+        ``save()`` and ``_on_model_changed`` can recover it unchanged.
+        """
+        repos = list(dict.fromkeys([current_repo, *self._cfg.AllModelName]))
+        combo.blockSignals(True)
+        combo.clear()
+        for repo in repos:
+            installed = is_model_installed(repo)
+            badge = "✓" if installed else "⬇"
+            size = model_size_label(repo)
+            suffix = f"  ({size})" if size else ""
+            combo.addItem(f"{badge}  {repo}{suffix}", userData=repo)
+        # Re-select the saved repo (by userData).
+        for i in range(combo.count()):
+            if combo.itemData(i) == current_repo:
+                combo.setCurrentIndex(i)
+                break
+        combo.blockSignals(False)
+
+    def _build_model_row(self, combo: "QComboBox") -> QWidget:
+        """Return a horizontal container: ``[combo] [Download]`` + endpoint hint."""
+        container = QWidget()
+        outer = QVBoxLayout(container)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(4)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+        row.addWidget(combo, stretch=1)
+
+        download_btn = QPushButton(t("settings.model.download"))
+        download_btn.setProperty("variant", "outline")
+        download_btn.setToolTip(t("settings.model.download.tooltip"))
+        download_btn.clicked.connect(self._on_download_model_clicked)
+        self._model_download_btn = download_btn
+        row.addWidget(download_btn)
+        outer.addLayout(row)
+
+        hint = QLabel(t("settings.model.endpoint", endpoint=active_hf_endpoint()))
+        hint.setObjectName("FieldHint")
+        hint.setWordWrap(True)
+        self._model_endpoint_label = hint
+        outer.addWidget(hint)
+
+        self._update_download_btn_state()
+        return container
+
+    def _current_model_repo(self) -> str:
+        combo = self._field_widgets.get("ModelName")
+        if isinstance(combo, QComboBox):
+            data = combo.currentData()
+            if data:
+                return str(data)
+        return self._cfg.ModelName
+
+    def _update_download_btn_state(self) -> None:
+        btn = self._model_download_btn
+        if btn is None:
+            return
+        # Disabled while a download is in flight.
+        if self._model_download_thread is not None and self._model_download_thread.isRunning():
+            btn.setEnabled(False)
+            btn.setText(t("settings.model.downloading"))
+            return
+        repo = self._current_model_repo()
+        if is_model_installed(repo):
+            btn.setEnabled(False)
+            btn.setText(t("settings.model.installed"))
+        else:
+            btn.setEnabled(True)
+            btn.setText(t("settings.model.download"))
+
+    def _on_model_combo_index_changed(self, _index: int) -> None:
+        """Currently-selected model changed. Update dependent UI."""
+        # Read the raw repo id (not the prefixed label) and fan out.
+        repo = self._current_model_repo()
+        self._on_model_changed(repo)
+        self._update_download_btn_state()
+
+    # ------------------------------------------------------------------
+    # Download flow
+    # ------------------------------------------------------------------
+    def _on_download_model_clicked(self) -> None:
+        if self._model_download_thread is not None and self._model_download_thread.isRunning():
+            return  # already downloading
+        repo = self._current_model_repo()
+        if is_model_installed(repo):
+            self.status_changed.emit("active", t("settings.model.already_installed", model=repo))
+            self._update_download_btn_state()
+            return
+
+        worker = ModelDownloadWorker(repo, parent=self)
+        worker.downloaded.connect(self._on_model_downloaded)
+        # When the thread itself finishes, drop our reference so the GC
+        # can clean up; also re-evaluate the button state.
+        worker.finished.connect(self._on_download_thread_finished)
+        self._model_download_thread = worker
+        worker.start()
+        self.status_changed.emit("warn", t("settings.model.downloading_status", model=repo))
+        self._update_download_btn_state()
+
+    def _on_model_downloaded(self, repo_id: str, success: bool, message: str) -> None:
+        if success:
+            self.status_changed.emit("active", t("settings.model.download_ok", model=repo_id))
+        else:
+            self.status_changed.emit("warn", t("settings.model.download_failed", error=message))
+        # Refresh the combo so the badge flips from ⬇ to ✓.
+        combo = self._field_widgets.get("ModelName")
+        if isinstance(combo, QComboBox):
+            self._populate_model_combo(combo, self._current_model_repo())
+
+    def _on_download_thread_finished(self) -> None:
+        self._model_download_thread = None
+        self._update_download_btn_state()
+
+    # ------------------------------------------------------------------
     def _field_label_text(self, name: str) -> str:
         key = f"field.{name}"
         translated = t(key)
@@ -321,6 +474,14 @@ class SettingsPage(QWidget):
             card.description_label.setText(t(desc_key))
         for name, label in self._field_labels.items():
             label.setText(self._field_label_text(name))
+        # Model picker bits
+        if self._model_download_btn is not None:
+            self._update_download_btn_state()
+            self._model_download_btn.setToolTip(t("settings.model.download.tooltip"))
+        if self._model_endpoint_label is not None:
+            self._model_endpoint_label.setText(
+                t("settings.model.endpoint", endpoint=active_hf_endpoint())
+            )
 
     # ------------------------------------------------------------------
     def _save(self) -> None:

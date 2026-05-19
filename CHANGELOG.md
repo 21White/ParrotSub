@@ -26,6 +26,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] – 2026-05-19
+
+### Added
+- **Whisper model manager in the Settings page.** The *Whisper Model*
+  dropdown now shows the install status of every model in
+  `AppConfig.AllModelName` as a `✓ / ⬇` badge plus an approximate
+  on-disk size (e.g. `✓  mlx-community/whisper-tiny.en-mlx  (~75 MB)`).
+  A new *Download* button next to the dropdown pulls the currently
+  selected model in the background and flips the badge from ⬇ to ✓
+  on completion. Header status pill shows
+  `Downloading {model}…` / `Model downloaded: {model}` /
+  `Model download failed: {error}`.
+  Settings 页面新增 Whisper 模型管理：模型下拉框对每一项显示 `✓ / ⬇`
+  徽标加大致体积（例如 `✓ mlx-community/whisper-tiny.en-mlx (~75 MB)`），
+  旁边新增 *下载* 按钮可在后台拉取当前选中的模型，完成后徽标自动从
+  ⬇ 翻成 ✓。顶栏状态胶囊会反馈 `正在下载 {model}…` / `模型下载完成：
+  {model}` / `模型下载失败：{error}`。
+- **`parrotsub.models` module.** Centralises:
+  - `is_model_installed(repo_id)` – uses HuggingFace's
+    `try_to_load_from_cache` so partial downloads are treated as
+    "missing".
+  - `model_size_label(repo_id)` – cached on-disk approximations for
+    each model in `AllModelName`.
+  - `ModelDownloadWorker(QThread)` – background download via
+    `huggingface_hub.snapshot_download`, emits a `downloaded`
+    signal with `(repo_id, success, message)`.
+  - `ensure_default_hf_endpoint()` / `active_hf_endpoint()` – set
+    `HF_ENDPOINT` to the China mirror (`https://hf-mirror.com`)
+    when the user hasn't explicitly chosen one.
+  新增 `parrotsub.models` 模块：模型检测、体积估算、后台下载线程、
+  国内镜像默认值全部集中管理。
+
+### Changed
+- **`HF_ENDPOINT` defaults to `https://hf-mirror.com` on launch**
+  when the env var is unset, so model downloads triggered from the
+  UI (or by the upstream backend at first load) automatically take
+  the China mirror. Set `HF_ENDPOINT` in your shell before launching
+  to override. The Settings page shows the active endpoint under
+  the model dropdown.
+  启动时若未设置 `HF_ENDPOINT`，自动默认为国内镜像
+  `https://hf-mirror.com`，UI 触发的模型下载以及上游后端首次加载时
+  都走这个镜像。想覆盖直接在 shell 里 `export` 自己的即可。Settings
+  页面也会在模型下拉框下方实时显示当前镜像。
+
+---
+
 ## [0.5.1] – 2026-05-18
 
 ### Changed
@@ -290,7 +336,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/21White/ParrotSub/releases/tag/v0.6.0
 [0.5.1]: https://github.com/21White/ParrotSub/releases/tag/v0.5.1
 [0.5.0]: https://github.com/21White/ParrotSub/releases/tag/v0.5.0
 [0.4.2]: https://github.com/21White/ParrotSub/releases/tag/v0.4.2
