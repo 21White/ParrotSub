@@ -26,6 +26,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.2] – 2026-05-19
+
+### Changed
+- **Header status pill is quieter when a fallback model kicks in.**
+  Replaces the long-winded
+  `Using {fallback} (download {selected} from Settings → Whisper Model)`
+  with a single short `Using {fallback}` / `正在使用 {fallback}`, and
+  switches its colour from "warn" (amber) to "active" (teal) since
+  it's just an informational status, not a problem.
+  顶栏状态胶囊的 fallback 提示精简为只显示 `正在使用 {fallback}`，
+  去掉了"去 Settings → Whisper Model 下载 …" 那一长串说明；色调也
+  从警示橙改为品牌青，更像状态汇报而不是警告。
+- The "no whisper model" message is similarly shortened to
+  `No whisper model downloaded` / `未下载任何 Whisper 模型`.
+  "未下载任何模型" 那条提示也跟着精简成一句话。
+
+---
+
 ## [0.6.1] – 2026-05-19
 
 ### Fixed
@@ -393,7 +411,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/21White/ParrotSub/releases/tag/v0.6.2
 [0.6.1]: https://github.com/21White/ParrotSub/releases/tag/v0.6.1
 [0.6.0]: https://github.com/21White/ParrotSub/releases/tag/v0.6.0
 [0.5.1]: https://github.com/21White/ParrotSub/releases/tag/v0.5.1

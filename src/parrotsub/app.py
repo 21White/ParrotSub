@@ -238,12 +238,8 @@ def launch() -> int:
             # ``self.model_name`` which defaults to this class attr.
             RealtimeSubtitle.model_name = fallback
             fallback_status = (
-                "warn",
-                t(
-                    "status.model_fallback",
-                    fallback=fallback.split("/")[-1],
-                    selected=selected_model.split("/")[-1],
-                ),
+                "active",
+                t("status.model_fallback", fallback=fallback.split("/")[-1]),
             )
         else:
             print(

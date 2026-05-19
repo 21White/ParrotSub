@@ -43,12 +43,8 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "status.language_set": "Language: {label}",
         "status.theme_set": "Theme: {label}",
         "status.cleared": "History cleared",
-        "status.model_fallback": (
-            "Using {fallback} (download {selected} from Settings → Whisper Model)"
-        ),
-        "status.no_model": (
-            "No whisper model downloaded — go to Settings → Whisper Model"
-        ),
+        "status.model_fallback": "Using {fallback}",
+        "status.no_model": "No whisper model downloaded",
 
         # Home page
         "home.tasks.title": "Tasks",
@@ -176,8 +172,8 @@ _MESSAGES: Dict[str, Dict[str, str]] = {
         "status.language_set": "语言：{label}",
         "status.theme_set": "主题：{label}",
         "status.cleared": "历史已清空",
-        "status.model_fallback": "正在使用 {fallback}（去 Settings → Whisper Model 下载 {selected}）",
-        "status.no_model": "未下载任何 Whisper 模型 — 请到 Settings → Whisper Model 下载",
+        "status.model_fallback": "正在使用 {fallback}",
+        "status.no_model": "未下载任何 Whisper 模型",
 
         # Home page
         "home.tasks.title": "任务",
