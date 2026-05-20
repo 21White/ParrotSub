@@ -26,6 +26,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] – 2026-05-20
+
+### Changed
+- **Model download stack rewritten end-to-end, SmartSub-style.**
+  Inspired by `SmartSub/main/helpers/modelDownloader.ts`, we now do
+  the network ourselves via `requests` instead of going through
+  `huggingface_hub.snapshot_download`. The new pipeline:
+
+  1. Hits the HF JSON API (`/api/models/{repo}` then
+     `/api/models/{repo}/tree/{rev}`) to learn the revision SHA, the
+     list of files, each file's size, and each file's git/LFS blob
+     OID. Two hops because the model-info endpoint doesn't expose
+     file sizes and the tree endpoint doesn't expose the revision
+     SHA.
+  2. Downloads each file with raw `requests.get(stream=True,
+     timeout=(30, 60))` — a 30-second connect timeout and a
+     60-second **inactivity timeout** (no bytes for 60 s → abort and
+     try the next endpoint). Sends `Range: bytes=N-` so an
+     interrupted transfer resumes from where the last try stopped,
+     even across endpoints and across application restarts.
+  3. Writes into the standard HuggingFace cache layout
+     (`models--<org>--<repo>/blobs/<oid>` + `snapshots/<rev>/<file>`
+     symlinks + `refs/main`) so `mlx_whisper` loads from the same
+     cache without ever needing to re-fetch.
+  4. Emits a new `progress(repo_id, done, total, speed_bps, eta_s)`
+     signal **on every chunk** (not just every 500 ms), so the
+     header status pill can render
+     `Downloading {model}: 37% (614/1638 MB · 5.2 MB/s · ETA 03:18)`.
+  5. Logs every attempt and every per-endpoint failure to stderr
+     under the `[parrotsub.download]` prefix, including the file
+     name, the resume offset, the exception type and the message,
+     so debugging takes 10 seconds instead of an hour.
+
+  模型下载实现完全重写，照搬 SmartSub `modelDownloader.ts` 的思路。
+  改为直接用 `requests` 自己做网络，不再走 `huggingface_hub.
+  snapshot_download`。新管线：
+
+  1. 通过 HF JSON API（先 `/api/models/{repo}` 拿 revision SHA，再
+     `/api/models/{repo}/tree/{rev}` 拿文件列表 + size + blob OID）。
+  2. 每个文件用 `requests.get(stream=True, timeout=(30, 60))` 流
+     下载：连接超时 30 秒、单 chunk 阅读超时 60 秒（**60 秒收不到
+     字节就主动 abort**），失败自动 fallback 到下一个 endpoint，并
+     带 `Range: bytes=N-` 续传——跨 endpoint 跨重启都能从上次断点
+     接着下，不会浪费已经下到的字节。
+  3. 写入标准 HuggingFace 缓存结构（`models--<org>--<repo>/
+     blobs/<oid>` + `snapshots/<rev>/<file>` 软链 + `refs/main`），
+     `mlx_whisper` 加载时直接命中缓存。
+  4. `progress(repo_id, done, total, speed_bps, eta_s)` 信号每个
+     chunk 都发，顶栏胶囊实时显示
+     `正在下载 {model}：37%（614/1638 MB · 5.2 MB/s · 剩余 03:18）`。
+  5. 每次尝试 / 每次失败都用 `[parrotsub.download]` 前缀打到
+     stderr，含文件名、断点续传偏移、异常类型、错误消息——出问题
+     调试时 10 秒钟就能定位。
+
+### Added
+- New module `parrotsub.downloader` exposing `download_repo()`,
+  `DownloadProgress`, `DownloadAbortedError`, `DownloadFailedError`.
+  Tunables (`INACTIVITY_TIMEOUT`, `CONNECT_TIMEOUT`, `CHUNK_SIZE`)
+  live at module scope so they're easy to find and change.
+  新增 `parrotsub.downloader` 模块，导出 `download_repo()`、
+  `DownloadProgress`、`DownloadAbortedError`、`DownloadFailedError`。
+  所有阈值（INACTIVITY_TIMEOUT / CONNECT_TIMEOUT / CHUNK_SIZE）
+  集中在模块顶端，想改就能改。
+- Status-pill download line now includes speed and ETA — e.g.
+  `Downloading whisper-large-v3-turbo: 37% (614/1638 MB · 5.2 MB/s
+  · ETA 03:18)` / 中文版同步加 `5.2 MB/s · 剩余 03:18`. Helpers
+  `_human_speed` and `_human_duration` keep formatting consistent.
+  顶栏下载提示新增速度和剩余时间。新增 `_human_speed` /
+  `_human_duration` 两个辅助函数统一格式。
+
+### Removed
+- The `_make_progress_tqdm` factory and its `tqdm`-shimming
+  machinery introduced in v0.6.5. The new downloader emits byte
+  counts directly so the indirection is no longer needed.
+  v0.6.5 引入的 `_make_progress_tqdm` 工厂以及 tqdm shim 全部移除。
+  新下载器直接发字节计数，不再需要这一层间接。
+
+---
+
 ## [0.6.5] – 2026-05-19
 
 ### Added
@@ -554,7 +633,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **MIT 许可证**（版权所有 © 2025 glimmer），上游许可文本保留在
   `THIRD_PARTY_LICENSES/realtime-subtitle.LICENSE`。
 
-[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/21White/ParrotSub/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/21White/ParrotSub/releases/tag/v0.7.0
 [0.6.5]: https://github.com/21White/ParrotSub/releases/tag/v0.6.5
 [0.6.4]: https://github.com/21White/ParrotSub/releases/tag/v0.6.4
 [0.6.3]: https://github.com/21White/ParrotSub/releases/tag/v0.6.3

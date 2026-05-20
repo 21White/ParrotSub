@@ -459,13 +459,22 @@ class SettingsPage(QWidget):
             t("settings.model.downloading_via", model=repo_id, endpoint=host),
         )
 
-    def _on_model_download_progress(self, repo_id: str, done: int, total: int) -> None:
-        """Live percentage in the header status pill, throttled by the worker."""
+    def _on_model_download_progress(
+        self,
+        repo_id: str,
+        done: int,
+        total: int,
+        speed_bps: float,
+        eta_seconds: int,
+    ) -> None:
+        """Live percentage + speed + ETA in the header status pill."""
         if total <= 0:
             return
         pct = max(0, min(100, int(done * 100 / total)))
         done_mb = done / (1024 * 1024)
         total_mb = total / (1024 * 1024)
+        speed_str = _human_speed(speed_bps) if speed_bps > 0 else "—"
+        eta_str = _human_duration(eta_seconds) if eta_seconds > 0 else "—"
         self.status_changed.emit(
             "warn",
             t(
@@ -474,6 +483,8 @@ class SettingsPage(QWidget):
                 pct=pct,
                 done=done_mb,
                 total=total_mb,
+                speed=speed_str,
+                eta=eta_str,
             ),
         )
 
@@ -587,3 +598,25 @@ def _humanize(name: str) -> str:
             out.append(" ")
         out.append(ch)
     return "".join(out)
+
+
+def _human_speed(bps: float) -> str:
+    """``5_242_880`` -> ``"5.0 MB/s"``."""
+    if bps <= 0:
+        return "—"
+    if bps >= 1024 * 1024:
+        return f"{bps / (1024 * 1024):.1f} MB/s"
+    if bps >= 1024:
+        return f"{bps / 1024:.0f} KB/s"
+    return f"{bps:.0f} B/s"
+
+
+def _human_duration(seconds: int) -> str:
+    """``150`` -> ``"02:30"``; ``3725`` -> ``"01:02:05"``."""
+    if seconds <= 0:
+        return "—"
+    h, rem = divmod(int(seconds), 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h:d}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
